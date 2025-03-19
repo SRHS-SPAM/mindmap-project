@@ -69,5 +69,4 @@ def validate_and_process_user(request):
 
         except json.JSONDecodeError:
             return JsonResponse({'success': False, 'message': "JSON 형식이 잘못되었습니다."}, status=400)
-
     return JsonResponse({'success': False, 'message': "허용되지 않은 요청 방식입니다."}, status=405)
