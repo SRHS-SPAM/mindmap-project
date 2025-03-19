@@ -8,6 +8,7 @@ import json
 def validate_and_process_user(request):
     if request.method == 'POST':
         try:
+            
             data = json.loads(request.body)
             action = data.get('action')  # 요청한 작업 처리함
             
