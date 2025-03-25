@@ -74,3 +74,39 @@ def validate_and_process_user(request):
         except json.JSONDecodeError:
             return JsonResponse({'success': False, 'message': "JSON 형식이 잘못되었습니다."}, status=400)
     return JsonResponse({'success': False, 'message': "허용되지 않은 요청 방식입니다."}, status=405)
+
+
+from django.shortcuts import get_object_or_404
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from .models import MindMap, Node, ChatMessage, Memo, User
+from .serializers import MindMapSerializer, NodeSerializer, ChatMessageSerializer, MemoSerializer, UserSerializer
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+    @action(detail=True, methods=['POST'])
+    def add_friend(self, request, pk=None):
+        user = self.get_object()
+        friend_code = request.data.get('friend_code')
+        friend = get_object_or_404(User, friend_code=friend_code)
+        user.friends.add(friend)
+        return Response({'message': 'Friend added successfully'})
+
+class MindMapViewSet(viewsets.ModelViewSet):
+    queryset = MindMap.objects.all()
+    serializer_class = MindMapSerializer
+
+class NodeViewSet(viewsets.ModelViewSet):
+    queryset = Node.objects.all()
+    serializer_class = NodeSerializer
+
+class ChatMessageViewSet(viewsets.ModelViewSet):
+    queryset = ChatMessage.objects.all()
+    serializer_class = ChatMessageSerializer
+
+class MemoViewSet(viewsets.ModelViewSet):
+    queryset = Memo.objects.all()
+    serializer_class = MemoSerializer
