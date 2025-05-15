@@ -80,7 +80,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from .models import MindMap, Node, ChatMessage, Memo, User
+from .models import MindMap, Node, ChatMessage, Memo, Summary, User
 from .serializers import MindMapSerializer, NodeSerializer, ChatMessageSerializer, MemoSerializer, UserSerializer
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -110,3 +110,68 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
 class MemoViewSet(viewsets.ModelViewSet):
     queryset = Memo.objects.all()
     serializer_class = MemoSerializer
+
+from channels.generic.websocket import AsyncWebsocketConsumer
+import json
+
+class ChatConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.mindmap_id = self.scope['url_route']['kwargs']['mindmap_id']
+        self.room_group_name = f'chat_{self.mindmap_id}'
+        
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        message = data['message']
+        username = data['username']
+        user = User.objects.get(username=username)
+        mindmap = MindMap.objects.get(id=self.mindmap_id)
+        ChatMessage.objects.create(user=user, mindmap=mindmap, content=message)
+        
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'chat_message',
+                'message': message,
+                'username': username
+            }
+        )
+
+    async def chat_message(self, event):
+        await self.send(text_data=json.dumps(event))
+
+class AIConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.mindmap_id = self.scope['url_route']['kwargs']['mindmap_id']
+        self.room_group_name = f'ai_{self.mindmap_id}'
+        
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        summary = "(AI 요약) " + data['content'][:50] + "..."
+        node_id = data['node_id']
+        node = Node.objects.get(id=node_id)
+        Summary.objects.create(node=node, content=summary)
+        
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'ai_summary',
+                'summary': summary,
+                'node_id': node_id
+            }
+        )
+
+    async def ai_summary(self, event):
+        await self.send(text_data=json.dumps(event))
+
