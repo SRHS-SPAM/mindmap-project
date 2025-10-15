@@ -1,0 +1,35 @@
+.wrap_h {
+    height: 100%;
+    width: 100px;
+
+    background-color: #333;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.wrap_h p {
+    width: 80px;
+    height: 80px;
+    color: aliceblue;
+
+    margin: 10px;
+
+    font-size: 3rem;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wrap_h p:hover {
+    background-color: #222;
+    border-radius: 20px;
+}
+
+
+.icon {
+    width: 48px;
+    height: 48px;
+}
