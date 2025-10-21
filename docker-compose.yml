@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      # DB 접속에 필요한 환경 변수 설정
+      POSTGRES_USER: fastapi_user
+      POSTGRES_PASSWORD: fastapi_password
+      POSTGRES_DB: mindmap_db
+    volumes:
+      # DB 데이터 영구 저장을 위한 볼륨 설정
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # 호스트 PC와 컨테이너 포트 매핑
+      - "5432:5432"
+
+  app:
+    build: .  # 현재 디렉토리의 Dockerfile 사용
+    container_name: mindmap_api
+    # FastAPI 서버 시작 명령어 (개발 중에는 --reload 옵션으로 코드 변경 자동 감지)
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      # 로컬 코드와 컨테이너 코드를 동기화하여 실시간 개발 가능
+      - .:/app
+    ports:
+      # 호스트 PC와 컨테이너 포트 매핑
+      - "8000:8000"
+    environment:
+      # FastAPI 앱이 DB에 접속할 때 사용할 URL
+      DATABASE_URL: postgresql://fastapi_user:fastapi_password@db/mindmap_db
+    depends_on:
+      - db # db 컨테이너가 먼저 실행된 후 app 컨테이너 시작
+    
+volumes:
+  # DB 영구 저장을 위한 볼륨 정의
+  postgres_data:
