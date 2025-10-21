@@ -14,23 +14,25 @@ services:
       # DB 데이터 영구 저장을 위한 볼륨 설정
       - postgres_data:/var/lib/postgresql/data
     ports:
-      # 호스트 PC와 컨테이너 포트 매핑
-      - "5432:5432"
+      # 호스트 PC의 5433 포트를 컨테이너 내부의 5432 포트에 매핑 (포트 충돌 방지 목적)
+      - "5433:5432"
 
   app:
-    build: .  # 현재 디렉토리의 Dockerfile 사용
+    # 빌드 경로를 'back/' 폴더로 지정합니다.
+    build: ./back
     container_name: mindmap_api
-    # FastAPI 서버 시작 명령어 (개발 중에는 --reload 옵션으로 코드 변경 자동 감지)
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    # FastAPI 서버 시작 명령어: 'back' 폴더 내의 'main:app'을 참조하도록 수정
+    command: uvicorn back.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      # 로컬 코드와 컨테이너 코드를 동기화하여 실시간 개발 가능
+      # 로컬 코드와 컨테이너 코드를 동기화 (실시간 개발 가능)
       - .:/app
     ports:
-      # 호스트 PC와 컨테이너 포트 매핑
+      # 호스트 PC의 8000 포트를 컨테이너 내부의 8000 포트에 매핑
       - "8000:8000"
     environment:
       # FastAPI 앱이 DB에 접속할 때 사용할 URL
-      DATABASE_URL: postgresql://fastapi_user:fastapi_password@db/mindmap_db
+      # NOTE: app 컨테이너 내부에서는 서비스 이름(db)과 내부 포트(5432)를 사용합니다.
+      DATABASE_URL: postgresql://fastapi_user:fastapi_password@db:5432/mindmap_db
     depends_on:
       - db # db 컨테이너가 먼저 실행된 후 app 컨테이너 시작
     
