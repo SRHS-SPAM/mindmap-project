@@ -40,11 +40,15 @@
 }
 
 .memo_wrap p{
-    width: 230px;
-    height: 150px;
+    width: 300px;
+    height: 420px;
 
     margin: 15px;
 
     background-color: #D9D9D9;
+    transition: transform 0.3s ease;
 }
 
+.memo_wrap p:hover {
+    transform: scale(1.05);
+}
