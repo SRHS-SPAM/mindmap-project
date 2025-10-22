@@ -57,7 +57,7 @@
     text-align: center;
 }
 
-input::placeholder {
+.in::placeholder {
     color: #EBE52B;
     text-align: center;
     opacity: 60%;
