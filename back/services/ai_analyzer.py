@@ -127,3 +127,11 @@ def recommend_map_improvements_mock(map_data: Dict[str, Any], chat_history: List
         recommendation = "현재 마인드맵은 균형 잡힌 구조를 가지고 있으며, 채팅 기록의 핵심 내용을 잘 반영하고 있습니다. 다음 단계로, 각 소주제에 대한 구체적인 작업 할당(Task Assignment)을 논의하는 것을 추천합니다."
 
     return recommendation[:500] # 500자 이내로 제한
+
+# 라우터에서 임포트하는 함수 (목업 함수를 호출하도록 래핑)
+# 이 함수가 없으면 ImportError가 발생합니다.
+def recommend_map_improvements(map_data: Dict[str, Any], chat_history: List[ChatMessage]) -> str:
+    """
+    라우터에서 호출하는 메인 추천 함수. 목업 함수를 실행하여 결과를 반환합니다.
+    """
+    return recommend_map_improvements_mock(map_data, chat_history)

@@ -6,7 +6,7 @@ from datetime import datetime
 class UserBase(BaseModel):
     email: EmailStr
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
     password: str
 
 class User(UserBase):
@@ -52,6 +52,12 @@ class Memo(MemoBase):
         orm_mode = True
 
 # --- 프로젝트 및 채팅 스키마 ---
+class ProjectUpdate(BaseModel):
+    title: Optional[str] = Field(None, description="업데이트할 프로젝트 제목")
+
+    class Config:
+        orm_mode = True
+        
 class ProjectCreate(BaseModel):
     title: str
     # 초기 멤버 추가 기능이 있을 경우 여기에 포함될 수 있음 (간소화를 위해 생략)
@@ -108,3 +114,7 @@ class AIAnalysisResult(BaseModel):
 # --- AI 추천 스키마 ---
 class AIRecommendation(BaseModel):
     recommendation: str
+
+# ORM 모델 충돌 방지 및 라우터 임포트를 위한 별칭
+# project.py 라우터에서 ORM 모델과 Pydantic 모델 이름 충돌을 피하기 위해 사용됩니다.
+ORMMindMapNode = MindMapNode
