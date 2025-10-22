@@ -1,9 +1,13 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createRoot } from 'react-dom/client';
+import { MessageSquare, Zap, Target, BookOpen, Link, Settings } from 'lucide-react'; // lucide-react 아이콘 사용
+
+// Tailwind CSS 로드 스크립트 (외부 환경에서)
+// <script src="https://cdn.tailwindcss.com"></script>
 
 // API 통신을 위한 기본 설정
 const API_BASE_URL = 'http://localhost:8000/api/v1';
-
-// --- MOCK 데이터 및 API 함수 ---
+const PROJECTS_ENDPOINT = `${API_BASE_URL}/projects`; // <-- API 경로 상수로 정의
 // 실제 프로젝트에서는 JWT 토큰을 저장하고 사용해야 합니다.
 const MOCK_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0QGdlbWluaS5jb20iLCJleHAiOjE3NjM1MzY0MDB9.j0zH0qW-V9J8hG0YtL7c9-WlR1p2Y2c7Q6N2Lw7v8w4";
 const PROJECT_ID = 1; // 테스트용 프로젝트 ID
@@ -24,7 +28,7 @@ const fetchApi = async (url, method = 'GET', body = null) => {
     const response = await fetch(url, config);
     if (!response.ok) {
         // 서버 에러 메시지 추출 시도
-        const errorDetail = await response.json().catch(() => ({ detail: 'API 요청 실패' }));
+        const errorDetail = await response.json().catch(() => ({ detail: `API 요청 실패: ${response.status} ${response.statusText}` }));
         throw new Error(errorDetail.detail || 'API 요청 실패');
     }
     // No Content 응답 처리
@@ -34,60 +38,102 @@ const fetchApi = async (url, method = 'GET', body = null) => {
 
 // --- 컴포넌트 정의 ---
 
+// 로딩 스피너
+const LoadingSpinner = () => (
+    <div className="flex justify-center items-center p-4">
+        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        처리 중...
+    </div>
+);
+
 // 마인드맵 노드 상세 정보 및 수정 모달
 const NodeDetailModal = ({ node, onClose, onUpdate, isGenerating }) => {
     const [title, setTitle] = useState(node.title);
     const [description, setDescription] = useState(node.description);
+    const [isUpdating, setIsUpdating] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        onUpdate({ ...node, title, description });
+        setIsUpdating(true);
+        try {
+            await onUpdate({ ...node, title, description });
+        } catch (error) {
+            console.error("노드 수정 실패:", error);
+            // 에러 메시지는 App 컴포넌트에서 이미 표시되므로 alert는 생략
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const nodeColors = {
+        '핵심 주제': 'bg-blue-600',
+        '대주제': 'bg-green-500',
+        '소주제': 'bg-yellow-500',
     };
 
     if (isGenerating) {
         return (
-            <div className="p-4 bg-red-100 text-red-700 rounded-lg">
-                AI가 마인드맵을 생성 중이므로 수정할 수 없습니다.
+            <div className="p-4 bg-red-100 text-red-700 rounded-lg max-w-lg w-full">
+                <p className="font-semibold">AI 분석 중</p>
+                <p className="text-sm">마인드맵이 생성 중이므로 노드를 수정할 수 없습니다.</p>
+                <button
+                    onClick={onClose}
+                    className="mt-3 px-3 py-1 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition text-sm"
+                >
+                    닫기
+                </button>
             </div>
         );
     }
     
     return (
-        <div className="p-6 bg-white shadow-xl rounded-lg max-w-lg w-full">
-            <h2 className="text-xl font-bold mb-4 border-b pb-2">{node.node_type} 상세 수정</h2>
+        <div className="p-6 bg-white shadow-2xl rounded-xl max-w-lg w-full transform transition-all">
+            <h2 className="text-2xl font-extrabold mb-4 pb-2 border-b text-gray-800">
+                <span className={`inline-block w-3 h-3 rounded-full mr-2 ${nodeColors[node.node_type] || 'bg-gray-500'}`}></span>
+                {node.node_type} 수정
+            </h2>
             <form onSubmit={handleSubmit}>
                 <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700">제목</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">제목</label>
                     <input
                         type="text"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+                        className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 text-lg focus:ring-indigo-500 focus:border-indigo-500"
                         required
+                        disabled={isUpdating}
                     />
                 </div>
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700">설명</label>
+                <div className="mb-6">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">상세 설명</label>
                     <textarea
-                        value={description}
+                        value={description || ''}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 h-24"
+                        className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 h-28 focus:ring-indigo-500 focus:border-indigo-500"
                         required
+                        disabled={isUpdating}
                     />
                 </div>
                 <div className="flex justify-end space-x-3">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+                        className="px-5 py-2 text-gray-700 bg-gray-200 rounded-xl hover:bg-gray-300 transition font-medium"
+                        disabled={isUpdating}
                     >
-                        닫기
+                        취소
                     </button>
                     <button
                         type="submit"
-                        className="px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition"
+                        className={`px-5 py-2 text-white rounded-xl transition font-bold shadow-md ${
+                            isUpdating ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'
+                        }`}
+                        disabled={isUpdating}
                     >
-                        수정 저장
+                        {isUpdating ? '저장 중...' : '수정 저장'}
                     </button>
                 </div>
             </form>
@@ -98,51 +144,73 @@ const NodeDetailModal = ({ node, onClose, onUpdate, isGenerating }) => {
 
 // 마인드맵 시각화 (Mock)
 const MindMapVisualization = ({ nodes, onNodeClick }) => {
-    // 핵심 주제 (원의 중앙), 대주제, 소주제를 구분하여 렌더링
     const coreNode = nodes.find(n => n.node_type === '핵심 주제');
     const majorNodes = nodes.filter(n => n.node_type === '대주제');
-    const minorNodes = nodes.filter(n => n.node_type === '소주제');
+
+    const getNodeStyle = (node, index, total, radius) => {
+        if (node.node_type === '핵심 주제') {
+            return {
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '9rem',
+                height: '9rem',
+            };
+        }
+        
+        // 원형 배치 계산
+        const angle = index * (2 * Math.PI / total) - (Math.PI / 2); // -90도(위쪽)부터 시작
+        const top = `calc(50% + ${Math.sin(angle) * radius}px)`;
+        const left = `calc(50% + ${Math.cos(angle) * radius}px)`;
+        
+        return {
+            top,
+            left,
+            transform: 'translate(-50%, -50%)',
+            width: '8rem',
+            height: '5rem',
+        };
+    };
+
+    const renderNode = (node, index, total, radius) => {
+        const style = getNodeStyle(node, index, total, radius);
+        const colorClass = {
+            '핵심 주제': 'bg-blue-600 rounded-full text-lg',
+            '대주제': 'bg-green-500 rounded-xl text-sm',
+            '소주제': 'bg-yellow-500 rounded-lg text-xs',
+        }[node.node_type] || 'bg-gray-500 rounded-lg';
+
+        return (
+            <div 
+                key={node.id} 
+                className={`absolute text-white shadow-xl flex items-center justify-center text-center p-2 cursor-pointer transition-all hover:scale-105 font-bold ${colorClass}`}
+                style={style}
+                onClick={() => onNodeClick(node)}
+            >
+                <span className="p-1 line-clamp-2">{node.title}</span>
+            </div>
+        );
+    };
 
     if (!coreNode) {
         return (
-            <div className="flex items-center justify-center h-full bg-gray-50 border-4 border-dashed border-gray-300 rounded-xl text-gray-500">
-                마인드맵이 생성되지 않았습니다. 채팅 후 'AI 분석 시작' 버튼을 눌러주세요.
+            <div className="flex flex-col items-center justify-center h-full bg-gray-50 border-4 border-dashed border-gray-300 rounded-xl text-gray-500 p-8">
+                <Zap className="w-12 h-12 mb-3 text-indigo-400"/>
+                <p className="text-xl font-semibold mb-2">마인드맵을 생성해주세요.</p>
+                <p className="text-center">채팅을 시작한 후, 좌측에서 'AI 분석 시작' 버튼을 눌러 마인드맵을 자동 생성할 수 있습니다.</p>
             </div>
         );
     }
     
-    // 연결선(Links)을 SVG로 그리는 로직은 복잡하므로 여기서는 시각화 노드만 Mock으로 배치
     return (
-        <div className="relative w-full h-full p-4 overflow-auto">
-            {/* 핵심 주제 - 중앙 배치 */}
-            <div 
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-36 h-36 bg-blue-600 text-white rounded-full flex items-center justify-center text-center shadow-lg cursor-pointer transition hover:scale-105"
-                onClick={() => onNodeClick(coreNode)}
-            >
-                <span className="font-bold text-lg">{coreNode.title}</span>
-            </div>
+        <div className="relative w-full h-full p-4 overflow-auto min-h-[500px]">
+            {/* 핵심 주제 */}
+            {renderNode(coreNode, 0, 1, 0)}
 
-            {/* 대주제 - 주변에 원형 배치 (Mock Position) */}
-            {majorNodes.map((node, index) => (
-                <div 
-                    key={node.id} 
-                    className={`absolute w-32 h-20 bg-green-500 text-white rounded-xl shadow-md flex items-center justify-center text-center p-2 cursor-pointer transition hover:bg-green-600`}
-                    // Mock: 원형 배치 (CSS 계산 복잡하여 단순 배치)
-                    style={{ 
-                        top: `calc(50% + ${Math.cos(index * (2 * Math.PI / majorNodes.length)) * 150}px)`, 
-                        left: `calc(50% + ${Math.sin(index * (2 * Math.PI / majorNodes.length)) * 150}px)`,
-                        transform: 'translate(-50%, -50%)' 
-                    }}
-                    onClick={() => onNodeClick(node)}
-                >
-                    <span className="font-medium text-sm">{node.title}</span>
-                </div>
-            ))}
-            
-            {/* 소주제는 생략 (복잡한 시각화 라이브러리가 필요함) */}
+            {/* 대주제 */}
+            {majorNodes.map((node, index) => renderNode(node, index, majorNodes.length, 250))}
 
-            {/* 실제 구현 시: nodes[].connections와 links[] 데이터를 기반으로 SVG 또는 Canvas를 이용해 선을 그려야 합니다. */}
-            <p className="absolute bottom-2 right-2 text-sm text-gray-400">
+            <p className="absolute bottom-2 right-2 text-xs text-gray-400">
                 * 요소 클릭 시 상세 정보 수정 가능 (시각화는 Mock)
             </p>
         </div>
@@ -158,35 +226,47 @@ const App = () => {
     const [selectedNode, setSelectedNode] = useState(null);
     const [recommendation, setRecommendation] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
+    const [isLoadingChats, setIsLoadingChats] = useState(true);
 
-    const chatContainerRef = React.useRef(null);
+    const chatContainerRef = useRef(null);
     
     // 채팅 기록 불러오기
     const fetchChatHistory = useCallback(async () => {
+        setIsLoadingChats(true);
         try {
-            const history = await fetchApi(`${API_BASE_URL}/project/${PROJECT_ID}/chat`);
+            // 경로 수정: /project/ -> /projects/
+            const history = await fetchApi(`${PROJECTS_ENDPOINT}/${PROJECT_ID}/chat`);
             setChats(history);
+            setErrorMessage('');
         } catch (error) {
-            setErrorMessage(error.message);
+            console.error("채팅 기록 불러오기 실패:", error);
+            setErrorMessage(`채팅 기록을 불러오는 데 실패했습니다. (${error.message})`);
+        } finally {
+            setIsLoadingChats(false);
         }
     }, []);
 
     // 마인드맵 노드 불러오기
     const fetchMindMapNodes = useCallback(async () => {
         try {
-            const fetchedNodes = await fetchApi(`${API_BASE_URL}/project/${PROJECT_ID}/mindmap`);
+            // 경로 수정: /project/ -> /projects/
+            const fetchedNodes = await fetchApi(`${PROJECTS_ENDPOINT}/${PROJECT_ID}/mindmap`);
             setNodes(fetchedNodes);
-            // isGenerating 상태는 Project API에서 가져오는 것이 더 정확하나, 여기서는 단순화
+            setErrorMessage('');
         } catch (error) {
-            setErrorMessage(error.message);
+            console.error("노드 불러오기 실패:", error);
+            setErrorMessage(`마인드맵 노드를 불러오는 데 실패했습니다. (${error.message})`);
         }
     }, []);
 
-    useEffect(() => {
+    const fetchAllData = useCallback(() => {
         fetchChatHistory();
         fetchMindMapNodes();
-        // 실제 앱에서는 WebSocket을 통해 채팅 및 마인드맵 업데이트를 실시간으로 처리해야 함
     }, [fetchChatHistory, fetchMindMapNodes]);
+
+    useEffect(() => {
+        fetchAllData();
+    }, [fetchAllData]);
     
     // 스크롤을 항상 최신 채팅으로 이동
     useEffect(() => {
@@ -200,36 +280,54 @@ const App = () => {
         e.preventDefault();
         if (!newChat.trim()) return;
         
+        const messageToSend = newChat.trim();
+        setNewChat('');
+        setErrorMessage('');
+        
         try {
+            // 경로 수정: /project/ -> /projects/
             const newMessage = await fetchApi(
-                `${API_BASE_URL}/project/${PROJECT_ID}/chat`, 
+                `${PROJECTS_ENDPOINT}/${PROJECT_ID}/chat`, 
                 'POST', 
-                { content: newChat }
+                { content: messageToSend }
             );
-            setChats(prev => [...prev, newMessage]);
-            setNewChat('');
+            // 백엔드에서 user_id만 반환하므로, 간단히 현재 채팅 목록에 추가
+            setChats(prev => [...prev, newMessage]); 
+            
         } catch (error) {
-            setErrorMessage(error.message);
+            console.error("채팅 전송 실패:", error);
+            setErrorMessage(`채팅 전송에 실패했습니다. (${error.message})`);
+            // 실패 시 입력 내용 복원 (선택 사항)
+            setNewChat(messageToSend); 
         }
     };
 
     // AI 마인드맵 생성 요청
     const handleGenerateMap = async () => {
+        if (chats.length === 0) {
+            // alert 대신 모달/토스트 메시지 사용 권장
+            setErrorMessage('채팅 내역이 없습니다. 메시지를 입력 후 시도해주세요.');
+            return;
+        }
+
         setIsGenerating(true);
         setErrorMessage('');
         try {
-            // Project API를 통해 is_generating 상태를 가져오는 것이 정확하지만, 단순화
-            const result = await fetchApi(`${API_BASE_URL}/project/${PROJECT_ID}/generate`, 'POST');
+            // 경로 수정: /project/ -> /projects/
+            const result = await fetchApi(`${PROJECTS_ENDPOINT}/${PROJECT_ID}/generate`, 'POST');
             
             if (result.is_success) {
                 // 성공적으로 DB에 저장되었으므로 다시 노드 정보를 가져옴
                 await fetchMindMapNodes();
+                // alert 대신 모달/토스트 메시지 사용 권장
                 alert('마인드맵 생성이 완료되었습니다.');
             } else {
+                 // alert 대신 모달/토스트 메시지 사용 권장
                  alert('마인드맵 생성에 실패했습니다.');
             }
         } catch (error) {
-            setErrorMessage(error.message);
+            console.error("AI 분석 실패:", error);
+            setErrorMessage(`AI 분석에 실패했습니다. (${error.message})`);
         } finally {
             setIsGenerating(false);
         }
@@ -239,63 +337,87 @@ const App = () => {
     const handleNodeUpdate = async (updatedNode) => {
         setErrorMessage('');
         try {
-             await fetchApi(
-                `${API_BASE_URL}/project/${PROJECT_ID}/node/${updatedNode.id}`,
+             // 경로 수정: /project/ -> /projects/
+             const result = await fetchApi(
+                `${PROJECTS_ENDPOINT}/${PROJECT_ID}/node/${updatedNode.id}`,
                 'PUT',
                 { title: updatedNode.title, description: updatedNode.description }
             );
-            // 수정된 노드를 상태에 반영
-            setNodes(prev => prev.map(n => n.id === updatedNode.id ? updatedNode : n));
+            // 수정된 노드를 상태에 반영 (API에서 반환된 최신 데이터 사용)
+            setNodes(prev => prev.map(n => n.id === result.id ? result : n));
             setSelectedNode(null);
-            alert(`노드 [${updatedNode.title}]이 수정되었습니다.`);
+            // alert 대신 모달/토스트 메시지 사용 권장
+            alert(`노드 [${result.title}]이 수정되었습니다.`);
+            return true; // 성공 시 true 반환
         } catch (error) {
-            setErrorMessage(error.message);
+            console.error("노드 업데이트 실패:", error);
+            setErrorMessage(`노드 수정에 실패했습니다. (${error.message})`);
             setSelectedNode(null); // 수정 실패 시 모달 닫기
+            throw error; // 에러를 다시 던져 NodeDetailModal에서 catch하도록 함
         }
     };
     
-    // AI 추천 요청
-    const handleAIReccommendation = async () => {
-        setRecommendation('AI 추천을 생성 중입니다...');
+    // AI 추천 요청 (함수명 수정: commendation -> Recommendation)
+    const handleAIRecommendation = async () => {
+        setRecommendation('');
         setErrorMessage('');
+        const oldRecommendation = recommendation; // 기존 추천 내용 저장
+        setRecommendation('AI 추천을 생성 중입니다. 잠시만 기다려주세요...');
+
         try {
-            const result = await fetchApi(`${API_BASE_URL}/project/${PROJECT_ID}/recommend`, 'POST');
+            // 경로 수정: /project/ -> /projects/
+            const result = await fetchApi(`${PROJECTS_ENDPOINT}/${PROJECT_ID}/recommend`, 'POST');
             setRecommendation(result.recommendation);
         } catch (error) {
-            setErrorMessage(error.message);
-            setRecommendation('AI 추천을 불러오는 데 실패했습니다.');
+            console.error("AI 추천 실패:", error);
+            setErrorMessage(`AI 추천을 불러오는 데 실패했습니다. (${error.message})`);
+            setRecommendation(oldRecommendation || 'AI 추천을 불러오는 데 실패했습니다.');
         }
     };
 
     return (
-        <div className="flex h-screen bg-gray-100 font-sans">
+        <div className="flex h-screen bg-gray-50 font-inter text-gray-800 antialiased">
             {/* 좌측: 채팅 영역 */}
-            <div className="w-1/3 bg-white border-r flex flex-col">
-                <header className="p-4 border-b bg-indigo-600 text-white font-bold text-lg">
-                    프로젝트 채팅방
+            <div className="w-full lg:w-1/3 bg-white border-r flex flex-col shadow-lg">
+                <header className="p-4 border-b bg-indigo-600 text-white font-extrabold text-xl flex items-center">
+                    <MessageSquare className="w-5 h-5 mr-2"/>
+                    협업 채팅방
                 </header>
                 
                 {/* 채팅 목록 */}
-                <div ref={chatContainerRef} className="flex-grow p-4 overflow-y-auto space-y-3">
-                    {chats.map((chat) => (
-                        <div key={chat.id} className="text-sm">
-                            <span className="font-semibold text-indigo-500">User_{chat.user_id}:</span> 
-                            <span className="ml-2 text-gray-800">{chat.content}</span>
-                            <span className="ml-3 text-xs text-gray-400">{new Date(chat.timestamp).toLocaleTimeString()}</span>
+                <div ref={chatContainerRef} className="flex-grow p-4 overflow-y-auto space-y-4 bg-gray-50">
+                    {isLoadingChats && chats.length === 0 ? (
+                         <div className="flex justify-center items-center h-full">
+                            <LoadingSpinner />
                         </div>
-                    ))}
+                    ) : (
+                        chats.map((chat) => (
+                            <div key={chat.id} className="text-sm flex flex-col p-2 bg-white rounded-lg shadow-sm">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="font-bold text-indigo-600 flex items-center">
+                                        <Target className="w-4 h-4 mr-1"/> User_{chat.user_id}:
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                        {new Date(chat.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
+                                <p className="text-gray-800 text-base break-words whitespace-pre-wrap">{chat.content}</p>
+                            </div>
+                        ))
+                    )}
                 </div>
 
                 {/* AI 분석 및 채팅 입력 */}
-                <div className="p-4 border-t">
+                <div className="p-4 border-t bg-white">
                     <button
                         onClick={handleGenerateMap}
                         disabled={isGenerating}
-                        className={`w-full py-2 mb-3 rounded-lg text-white font-bold transition ${
+                        className={`w-full py-3 mb-3 rounded-xl text-white font-bold transition duration-200 shadow-md flex items-center justify-center ${
                             isGenerating ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
                         }`}
                     >
-                        {isGenerating ? 'AI 분석 중...' : 'AI 분석 시작'}
+                        <Zap className="w-5 h-5 mr-2"/>
+                        {isGenerating ? 'AI 마인드맵 분석 중...' : 'AI 분석 시작'}
                     </button>
 
                     <form onSubmit={handleSendChat} className="flex space-x-2">
@@ -303,52 +425,56 @@ const App = () => {
                             type="text"
                             value={newChat}
                             onChange={(e) => setNewChat(e.target.value)}
-                            placeholder="채팅 메시지 입력..."
-                            className="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                            placeholder="채팅 메시지를 입력하고 Enter를 누르세요..."
+                            className="flex-grow p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 shadow-sm"
                             disabled={isGenerating}
                         />
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-                            disabled={isGenerating}
+                            className="px-5 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition duration-200 font-bold shadow-md"
+                            disabled={isGenerating || !newChat.trim()}
                         >
-                            전송
+                            <MessageSquare className="w-5 h-5"/>
                         </button>
                     </form>
                 </div>
             </div>
 
             {/* 우측: 마인드맵 영역 */}
-            <div className="w-2/3 flex flex-col p-4 space-y-4">
-                <header className="flex justify-between items-center pb-2 border-b">
-                    <h1 className="text-2xl font-bold text-gray-800">마인드맵 프로젝트 (ID: {PROJECT_ID})</h1>
+            <div className="flex-grow flex flex-col p-6 space-y-4 overflow-hidden">
+                <header className="flex justify-between items-center pb-3 border-b border-gray-200">
+                    <h1 className="text-2xl font-extrabold text-gray-800 flex items-center">
+                        <BookOpen className="w-6 h-6 mr-2 text-indigo-500"/>
+                        협업 마인드맵 (Project ID: {PROJECT_ID})
+                    </h1>
                     <button
-                        onClick={handleAIReccommendation}
+                        onClick={handleAIRecommendation} /* 함수 이름 수정 */
                         disabled={nodes.length === 0 || isGenerating}
-                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                        className={`px-5 py-2 rounded-xl text-sm font-bold transition duration-200 shadow-lg flex items-center ${
                             nodes.length === 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-yellow-500 text-white hover:bg-yellow-600'
                         }`}
                     >
-                        AI 추천 받기 (500자 이내)
+                        <Settings className="w-4 h-4 mr-2"/>
+                        AI 개선 추천 받기
                     </button>
                 </header>
 
                 {/* AI 추천 결과 표시 */}
                 {recommendation && (
-                    <div className="p-3 bg-yellow-100 border border-yellow-300 rounded-lg text-sm">
+                    <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-xl text-sm shadow-inner">
                         <span className="font-bold text-yellow-700">AI 추천:</span> {recommendation}
                     </div>
                 )}
                 
                 {/* 에러 메시지 표시 */}
                 {errorMessage && (
-                    <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm font-medium">
-                        오류: {errorMessage}
+                    <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-xl text-sm font-medium shadow-md">
+                        <span className="font-bold">시스템 오류:</span> {errorMessage}
                     </div>
                 )}
 
                 {/* 마인드맵 시각화 영역 */}
-                <div className="flex-grow bg-white shadow-lg rounded-xl overflow-hidden">
+                <div className="flex-grow bg-white shadow-xl rounded-xl overflow-hidden relative border border-gray-200">
                     <MindMapVisualization 
                         nodes={nodes} 
                         onNodeClick={setSelectedNode} 
@@ -357,13 +483,15 @@ const App = () => {
 
                 {/* 노드 상세 수정 모달 */}
                 {selectedNode && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <NodeDetailModal 
-                            node={selectedNode} 
-                            onClose={() => setSelectedNode(null)}
-                            onUpdate={handleNodeUpdate}
-                            isGenerating={isGenerating}
-                        />
+                    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={() => setSelectedNode(null)}>
+                        <div onClick={e => e.stopPropagation()}>
+                            <NodeDetailModal 
+                                node={selectedNode} 
+                                onClose={() => setSelectedNode(null)}
+                                onUpdate={handleNodeUpdate}
+                                isGenerating={isGenerating}
+                            />
+                        </div>
                     </div>
                 )}
             </div>
@@ -371,4 +499,12 @@ const App = () => {
     );
 };
 
+// Canvas 환경에서 렌더링을 위한 기본 설정
+const rootElement = document.getElementById('root') || document.body;
+if (!document.getElementById('root')) {
+    const div = document.createElement('div');
+    div.id = 'root';
+    document.body.appendChild(div);
+}
+// createRoot(rootElement).render(<App />); // 실제 환경에서 사용
 export default App;
