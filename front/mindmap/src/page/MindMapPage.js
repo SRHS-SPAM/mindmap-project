@@ -1,5 +1,4 @@
 import "./HomePage.css"
-import { useNavigate } from 'react-router-dom';
 
 import Header from "../component/Header"
 

@@ -1,0 +1,50 @@
+.wrap_ho {
+    background-color: #272E33;
+    width: calc(100% - 100px);
+    height: auto;
+    margin: 0;
+    margin-left: 100px;
+    padding: 0;
+    
+    display: flex;
+
+ }
+
+.main_text_ho {
+    margin: 15px;
+
+    color: aliceblue;
+
+    font-weight: 900;
+    font-family: 'Inter', sans-serif;
+    font-size: 60px;
+}
+
+
+.info {
+    width: 100%;
+}
+
+.resent_wrap {
+    margin-left: 40px;
+    margin-bottom: 20px; 
+}
+
+
+.memo_wrap {
+    width: 100%;
+    
+    display: flex;
+    flex-wrap: wrap;
+
+}
+
+.memo_wrap p{
+    width: 230px;
+    height: 150px;
+
+    margin: 15px;
+
+    background-color: #D9D9D9;
+}
+

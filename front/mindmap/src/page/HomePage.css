@@ -1,12 +1,77 @@
 .wrap_ho {
-    background-color: black;
-    width: 100vw;
-    height: 100vh;
+    background-color: #272E33;
+    width: calc(100% - 100px);
+    height: auto;
     margin: 0;
+    margin-left: 100px;
     padding: 0;
     
     display: flex;
+
+ }::-webkit-scrollbar {
+  display: none;
+}
+
+.main_text_ho {
+    margin: 15px;
+
+    color: aliceblue;
+
+    font-weight: 900;
+    font-family: 'Inter', sans-serif;
+    font-size: 60px;
+}
+
+.sub_text_ho {
+    margin: 15px 0;   
+
+    color: aliceblue;
+
+    font-weight: 900;
+    font-family: 'Inter', sans-serif;
+    font-size: 40px;
+}
+
+.people_wrap {
+    border-top: 3px solid #101316;
+    border-bottom: 3px solid #101316;
+
+    border-top: 3px solid aliceblue;
+    border-bottom: 3px solid aliceblue;
 }
 
 
+.info {
+    width: 100%;
+}
+
+.resent_wrap {
+    margin-left: 40px;
+    margin-bottom: 20px; 
+}
+
+.scroll {
+    width: 1300px;
+    overflow: scroll;
+    /* 가로 스크롤 */
+    overflow: scroll;
+    -webkit-overflow-scrolling: touch;
+
+    white-space: nowrap;
+}
+
+.act_wrap {
+    display: flex;
+    width: 2000px;
+
+}
+
+.act_wrap p{
+    width: 250px;
+    height: 150px;
+
+    margin: 15px;
+
+    background-color: #D9D9D9;
+}
 

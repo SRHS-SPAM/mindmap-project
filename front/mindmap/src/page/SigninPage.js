@@ -2,7 +2,7 @@ import "./SignPage.css"
 import { useNavigate } from 'react-router-dom';
 
 const LoginPage = () => {
-const navigation = useNavigate();
+    const navigation = useNavigate();
 
     return(
         <div className="wrap_s">

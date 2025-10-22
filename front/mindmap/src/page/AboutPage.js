@@ -1,17 +1,24 @@
-import "./HomePage.css"
+import "./AboutPage.css"
+
 import { useNavigate } from 'react-router-dom';
 
-import Header from "../component/Header"
+import Header from "../component/Header";
 
-const AboutPage = () => {
+const Friend = () => {
+    const navigation = useNavigate();
     return(
-        <div className="wrap_ho">
+        <div className="wrap_f">
             <Header />
-            <div className='text_wrap'>
-                <h1 className='main_text'>AboutPage</h1>
-            </div>
+            <div className="info_a">
+                <button className='go_a' onClick={() => navigation('/login')}>
+                    <p className='sub_text'>ACCOUNT DETAILS</p>
+                </button>
+                <button className='go_a' onClick={() => navigation('/login')}>
+                    <p className='sub_text'>LOGOUT</p>
+                </button>
+            </div>   
         </div>
     );
 }
 
-export default AboutPage;
+export default Friend;
