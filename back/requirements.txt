@@ -7,3 +7,4 @@ passlib[bcrypt]
 psycopg2-binary
 python-multipart
 python-dotenv
+requests
