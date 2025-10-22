@@ -5,9 +5,12 @@ import { MessageSquare, Zap, Target, BookOpen, Link, Settings } from 'lucide-rea
 // Tailwind CSS 로드 스크립트 (외부 환경에서)
 // <script src="https://cdn.tailwindcss.com"></script>
 
-// API 통신을 위한 기본 설정
+// ==========================================================
+// [API 경로 설정] 서버 코드에 맞춰 모든 엔드포인트를 단수형으로 수정합니다.
+// GET /chat, POST /chat, GET /mindmap
+// ==========================================================
 const API_BASE_URL = 'http://localhost:8000/api/v1';
-const PROJECTS_ENDPOINT = `${API_BASE_URL}/projects`; // <-- API 경로 상수로 정의
+const PROJECTS_ENDPOINT = `${API_BASE_URL}/projects`; // API 경로 상수로 정의
 // 실제 프로젝트에서는 JWT 토큰을 저장하고 사용해야 합니다.
 const MOCK_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0QGdlbWluaS5jb20iLCJleHAiOjE3NjM1MzY0MDB9.j0zH0qW-V9J8hG0YtL7c9-WlR1p2Y2c7Q6N2Lw7v8w4";
 const PROJECT_ID = 1; // 테스트용 프로젝트 ID
@@ -29,7 +32,7 @@ const fetchApi = async (url, method = 'GET', body = null) => {
     if (!response.ok) {
         // 서버 에러 메시지 추출 시도
         const errorDetail = await response.json().catch(() => ({ detail: `API 요청 실패: ${response.status} ${response.statusText}` }));
-        throw new Error(errorDetail.detail || 'API 요청 실패');
+        throw new Error(errorDetail.detail || `API 요청 실패: ${response.status} ${response.statusText}`); // statusText 추가
     }
     // No Content 응답 처리
     if (response.status === 204) return null;
@@ -59,10 +62,12 @@ const NodeDetailModal = ({ node, onClose, onUpdate, isGenerating }) => {
         e.preventDefault();
         setIsUpdating(true);
         try {
+            // onUpdate에서 예외를 throw하므로 await로 결과를 받지 않고 성공 여부만 확인합니다.
             await onUpdate({ ...node, title, description });
+            onClose(); // 성공 시 모달 닫기
         } catch (error) {
             console.error("노드 수정 실패:", error);
-            // 에러 메시지는 App 컴포넌트에서 이미 표시되므로 alert는 생략
+            // App 컴포넌트에서 에러 메시지를 표시
         } finally {
             setIsUpdating(false);
         }
@@ -227,6 +232,8 @@ const App = () => {
     const [recommendation, setRecommendation] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
     const [isLoadingChats, setIsLoadingChats] = useState(true);
+    // [수정: 옵티미스틱 업데이트를 위한 상태 추가] 임시 ID 카운터
+    const [tempIdCounter, setTempIdCounter] = useState(-1); 
 
     const chatContainerRef = useRef(null);
     
@@ -234,7 +241,7 @@ const App = () => {
     const fetchChatHistory = useCallback(async () => {
         setIsLoadingChats(true);
         try {
-            // 경로 수정: /project/ -> /projects/
+            // [경로 수정] 서버 정의에 맞춰 'chat' (단수형) 사용
             const history = await fetchApi(`${PROJECTS_ENDPOINT}/${PROJECT_ID}/chat`);
             setChats(history);
             setErrorMessage('');
@@ -249,7 +256,7 @@ const App = () => {
     // 마인드맵 노드 불러오기
     const fetchMindMapNodes = useCallback(async () => {
         try {
-            // 경로 수정: /project/ -> /projects/
+            // [경로 수정] 서버 정의에 맞춰 'mindmap' (단수형) 사용
             const fetchedNodes = await fetchApi(`${PROJECTS_ENDPOINT}/${PROJECT_ID}/mindmap`);
             setNodes(fetchedNodes);
             setErrorMessage('');
@@ -284,21 +291,47 @@ const App = () => {
         setNewChat('');
         setErrorMessage('');
         
+        // 1. [옵티미스틱 업데이트] 임시 메시지 생성 및 UI에 즉시 표시
+        const tempId = tempIdCounter;
+        setTempIdCounter(prev => prev - 1);
+        
+        const tempMessage = {
+            // 임시 ID는 음수, isPending 플래그 추가
+            id: tempId, 
+            content: messageToSend, 
+            user_id: 999, // 임시 사용자 ID (실제는 인증 토큰에서 가져와야 함)
+            timestamp: new Date().toISOString(),
+            isPending: true 
+        };
+
+        // 이 부분이 실행되어야 "전송 중..."이 표시됩니다.
+        setChats(prev => [...prev, tempMessage]); 
+
         try {
-            // 경로 수정: /project/ -> /projects/
-            const newMessage = await fetchApi(
+            // 2. API 호출
+            // [경로 수정] 서버 정의에 맞춰 'chat' (단수형) 사용
+            const serverMessage = await fetchApi(
                 `${PROJECTS_ENDPOINT}/${PROJECT_ID}/chat`, 
                 'POST', 
                 { content: messageToSend }
             );
-            // 백엔드에서 user_id만 반환하므로, 간단히 현재 채팅 목록에 추가
-            setChats(prev => [...prev, newMessage]); 
+            
+            // 3. 성공: 임시 메시지를 서버 데이터로 대체
+            setChats(prev => prev.map(chat => 
+                chat.id === tempId 
+                    ? { ...serverMessage, isPending: false } // 서버가 반환한 메시지로 교체
+                    : chat
+            )); 
             
         } catch (error) {
             console.error("채팅 전송 실패:", error);
             setErrorMessage(`채팅 전송에 실패했습니다. (${error.message})`);
+            
+            // 4. 실패: 임시 메시지를 UI에서 제거
+            setChats(prev => prev.filter(chat => chat.id !== tempId));
+            
             // 실패 시 입력 내용 복원 (선택 사항)
-            setNewChat(messageToSend); 
+            // setNewChat(messageToSend); 
         }
     };
 
@@ -313,17 +346,19 @@ const App = () => {
         setIsGenerating(true);
         setErrorMessage('');
         try {
-            // 경로 수정: /project/ -> /projects/
+            // API 명세에 따라 '/generate' 엔드포인트 사용 (변경 없음)
             const result = await fetchApi(`${PROJECTS_ENDPOINT}/${PROJECT_ID}/generate`, 'POST');
             
             if (result.is_success) {
                 // 성공적으로 DB에 저장되었으므로 다시 노드 정보를 가져옴
                 await fetchMindMapNodes();
-                // alert 대신 모달/토스트 메시지 사용 권장
-                alert('마인드맵 생성이 완료되었습니다.');
+                // [alert 대체] 성공 메시지는 임시로 에러 메시지 영역에 표시
+                setErrorMessage('🎉 마인드맵 생성이 완료되었습니다.');
+                setTimeout(() => setErrorMessage(''), 3000); 
+
             } else {
                  // alert 대신 모달/토스트 메시지 사용 권장
-                 alert('마인드맵 생성에 실패했습니다.');
+                 setErrorMessage('마인드맵 생성에 실패했습니다.');
             }
         } catch (error) {
             console.error("AI 분석 실패:", error);
@@ -337,27 +372,28 @@ const App = () => {
     const handleNodeUpdate = async (updatedNode) => {
         setErrorMessage('');
         try {
-             // 경로 수정: /project/ -> /projects/
+             // API 명세에 따라 '/node/{node_id}' 엔드포인트 사용 (변경 없음)
              const result = await fetchApi(
-                `${PROJECTS_ENDPOINT}/${PROJECT_ID}/node/${updatedNode.id}`,
-                'PUT',
-                { title: updatedNode.title, description: updatedNode.description }
-            );
-            // 수정된 노드를 상태에 반영 (API에서 반환된 최신 데이터 사용)
-            setNodes(prev => prev.map(n => n.id === result.id ? result : n));
-            setSelectedNode(null);
-            // alert 대신 모달/토스트 메시지 사용 권장
-            alert(`노드 [${result.title}]이 수정되었습니다.`);
-            return true; // 성공 시 true 반환
+                 `${PROJECTS_ENDPOINT}/${PROJECT_ID}/node/${updatedNode.id}`,
+                 'PUT',
+                 { title: updatedNode.title, description: updatedNode.description }
+             );
+             // 수정된 노드를 상태에 반영 (API에서 반환된 최신 데이터 사용)
+             setNodes(prev => prev.map(n => n.id === result.id ? result : n));
+             
+             // [alert 대체] 성공 메시지는 임시로 에러 메시지 영역에 표시
+             setErrorMessage(`✅ 노드 [${result.title}]이 수정되었습니다.`);
+             setTimeout(() => setErrorMessage(''), 3000);
+
+             return true; // 성공 시 true 반환
         } catch (error) {
             console.error("노드 업데이트 실패:", error);
             setErrorMessage(`노드 수정에 실패했습니다. (${error.message})`);
-            setSelectedNode(null); // 수정 실패 시 모달 닫기
             throw error; // 에러를 다시 던져 NodeDetailModal에서 catch하도록 함
         }
     };
     
-    // AI 추천 요청 (함수명 수정: commendation -> Recommendation)
+    // AI 추천 요청
     const handleAIRecommendation = async () => {
         setRecommendation('');
         setErrorMessage('');
@@ -365,7 +401,7 @@ const App = () => {
         setRecommendation('AI 추천을 생성 중입니다. 잠시만 기다려주세요...');
 
         try {
-            // 경로 수정: /project/ -> /projects/
+            // API 명세에 따라 '/recommend' 엔드포인트 사용 (변경 없음)
             const result = await fetchApi(`${PROJECTS_ENDPOINT}/${PROJECT_ID}/recommend`, 'POST');
             setRecommendation(result.recommendation);
         } catch (error) {
@@ -387,9 +423,9 @@ const App = () => {
                 {/* 채팅 목록 */}
                 <div ref={chatContainerRef} className="flex-grow p-4 overflow-y-auto space-y-4 bg-gray-50">
                     {isLoadingChats && chats.length === 0 ? (
-                         <div className="flex justify-center items-center h-full">
-                            <LoadingSpinner />
-                        </div>
+                            <div className="flex justify-center items-center h-full">
+                                <LoadingSpinner />
+                            </div>
                     ) : (
                         chats.map((chat) => (
                             <div key={chat.id} className="text-sm flex flex-col p-2 bg-white rounded-lg shadow-sm">
@@ -401,7 +437,13 @@ const App = () => {
                                         {new Date(chat.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </div>
-                                <p className="text-gray-800 text-base break-words whitespace-pre-wrap">{chat.content}</p>
+                                {/* [수정: 전송 대기 상태 표시] isPending일 경우 회색 음영 처리 */}
+                                <p className={`text-gray-800 text-base break-words whitespace-pre-wrap ${chat.isPending ? 'opacity-50 italic' : ''}`}>
+                                    {chat.content}
+                                    {chat.isPending && (
+                                        <span className="ml-2 text-xs text-gray-500 font-semibold">(전송 중...)</span>
+                                    )}
+                                </p>
                             </div>
                         ))
                     )}
@@ -469,7 +511,7 @@ const App = () => {
                 {/* 에러 메시지 표시 */}
                 {errorMessage && (
                     <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-xl text-sm font-medium shadow-md">
-                        <span className="font-bold">시스템 오류:</span> {errorMessage}
+                        <span className="font-bold">시스템 메시지:</span> {errorMessage}
                     </div>
                 )}
 
