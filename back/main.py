@@ -41,6 +41,8 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["1. 인증 및 사�
 app.include_router(user.router, prefix="/api/v1/user", tags=["2. 사용자 및 친구"])
 app.include_router(memo.router, prefix="/api/v1/memo", tags=["3. 메모 관리"])
 app.include_router(project.router, prefix="/api/v1/project", tags=["4. 프로젝트 및 마인드맵"])
+app.include_router(project.router, prefix="/projects", tags=["projects"])
+app.include_router(auth.router) # auth 라우터 추가
 
 
 @app.get("/", tags=["Root"])
