@@ -9,6 +9,9 @@ class UserBase(BaseModel):
     
 class UserCreate(UserBase):
     """사용자 회원가입 시 필요 (password 포함)"""
+    email: EmailStr
+
+class UserCreate(BaseModel):
     password: str
 
 class User(UserBase):
@@ -31,6 +34,53 @@ class TokenData(BaseModel):
     email: Optional[str] = None
 
 # --- 채팅 스키마 ---
+# --- 친구 관계 스키마 ---
+class FriendRequest(BaseModel):
+    friend_email: EmailStr
+
+class FriendStatus(BaseModel):
+    friend_id: int
+    email: EmailStr
+    is_online: bool
+    
+# --- 메모 스키마 ---
+class MemoBase(BaseModel):
+    title: str
+    content: str
+
+class MemoCreate(MemoBase):
+    pass
+
+class Memo(MemoBase):
+    id: int
+    owner_id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        orm_mode = True
+
+# --- 프로젝트 및 채팅 스키마 ---
+class ProjectUpdate(BaseModel):
+    title: Optional[str] = Field(None, description="업데이트할 프로젝트 제목")
+
+    class Config:
+        orm_mode = True
+        
+class ProjectCreate(BaseModel):
+    title: str
+    # 초기 멤버 추가 기능이 있을 경우 여기에 포함될 수 있음 (간소화를 위해 생략)
+
+class Project(BaseModel):
+    id: int
+    title: str
+    is_generating: bool
+    last_chat_id_processed: int
+    created_at: datetime
+    
+    class Config:
+        orm_mode = True
+
 class ChatMessageCreate(BaseModel):
     content: str
 
@@ -144,3 +194,7 @@ class FriendStatus(BaseModel):
     
     class Config:
         from_attributes = True
+
+# ORM 모델 충돌 방지 및 라우터 임포트를 위한 별칭
+# project.py 라우터에서 ORM 모델과 Pydantic 모델 이름 충돌을 피하기 위해 사용됩니다.
+ORMMindMapNode = MindMapNode

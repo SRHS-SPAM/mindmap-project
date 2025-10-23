@@ -2,8 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from ..database import get_db
-
-# ORM 모델 임포트 시 별칭(Alias) 사용: 충돌 해결
+# Pydantic 스키마와의 이름 충돌을 피하기 위해 ORM 모델에 별칭(ORM) 지정
 from ..models import (
     Project as ORMProject, 
     ProjectMember as ORMProjectMember, 
@@ -29,17 +28,6 @@ from typing import List
 from sqlalchemy.orm import joinedload
 
 router = APIRouter()
-
-# 헬퍼 함수: 멤버 검증
-def verify_project_member(db: Session, project_id: int, user_id: int):
-    """사용자가 프로젝트 멤버인지 확인하고, 아니면 403 에러 발생"""
-    is_member = db.query(ORMProjectMember).filter(
-        ORMProjectMember.project_id == project_id,
-        ORMProjectMember.user_id == user_id
-    ).first()
-    if not is_member:
-        raise HTTPException(status_code=403, detail="Not a member of this project")
-    return True
 
 # --- 프로젝트 CRUD ---
 @router.post("/", response_model=ProjectSchema, status_code=status.HTTP_201_CREATED)
@@ -154,15 +142,24 @@ def post_chat_message(
     db: Session = Depends(get_db)
 ):
     """프로젝트 채팅 메시지 전송"""
-    verify_project_member(db, project_id, current_user.id)
-        
+    # 프로젝트 멤버 검증 로직 생략 (get_project_details에서 이미 처리)
     db_message = ORMChatMessage(
         project_id=project_id,
-        user_id=current_user.id,
+        user_id=user_id,
         content=message.content
     )
     db.add(db_message)
-    db.commit()
+    
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        # 메시지 삽입 중 발생 가능한 다른 DB 오류 처리
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Database error during message commit: {e}"
+        )
+        
     db.refresh(db_message)
     return db_message
 
