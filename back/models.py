@@ -74,6 +74,7 @@ class ProjectMember(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
+    is_admin = Column(Boolean, default=False) # 관리자 권한 추가 (models.py에는 누락되어 있었지만, project.py에서 사용되므로 추가)
     
     project = relationship("Project", back_populates="members")
     user = relationship("User", back_populates="projects")
