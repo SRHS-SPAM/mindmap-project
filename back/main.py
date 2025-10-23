@@ -1,20 +1,19 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
 import uvicorn
-import json
-from datetime import datetime
 
 # DB 설정 및 모델 임포트
-from .database import engine, Base, get_db
-from . import models
+# DB Engine과 Base를 임포트하여 테이블 생성을 수행합니다.
+from .database import engine, Base
 
-# 라우터 및 서비스 임포트
-# .routers.project 대신 .routers import project를 사용한다고 가정합니다.
+# ORM 모델을 임포트해야 Base.metadata.create_all()이 해당 테이블들을 인식할 수 있습니다.
+from . import models 
+
+# 라우터 임포트 (파일 구조에 따라 routers 디렉토리 내에 있다고 가정)
+# 만약 파일이 없다면, 반드시 해당 파일을 생성해야 합니다.
 from .routers import auth, project, user, memo
-from .schemas import MindMapNodeBase, MindMapData
 
-# DB 테이블 생성
+# DB 테이블 생성 (models.py에서 정의된 모든 테이블이 생성됩니다.)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -37,11 +36,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 라우터 등록 수정: 클라이언트의 요청 경로 (/api/v1/projects)에 맞춰 'project' 라우터를 등록합니다.
+# 라우터 등록 및 경로 접두사 설정
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["1. 인증 및 사용자"])
 app.include_router(user.router, prefix="/api/v1/user", tags=["2. 사용자 및 친구"])
 app.include_router(memo.router, prefix="/api/v1/memo", tags=["3. 메모 관리"])
-app.include_router(project.router, prefix="/api/v1/project", tags=["4. 프로젝트 및 마인드맵"])
+# 핵심 수정 부분: 프로젝트 관련 모든 API의 경로를 /api/v1/projects로 설정
+app.include_router(project.router, prefix="/api/v1/projects", tags=["4. 프로젝트 및 마인드맵"])
 app.include_router(project.router, prefix="/projects", tags=["projects"])
 app.include_router(auth.router) # auth 라우터 추가
 
@@ -51,5 +51,5 @@ def read_root():
     return {"message": "MindMap Collaboration API is running."}
 
 if __name__ == "__main__":
-    # 개발 환경에서만 uvicorn 실행 (실제 배포 환경에 따라 수정될 수 있습니다.)
+    # 개발 환경에서 uvicorn 실행
     uvicorn.run(app, host="0.0.0.0", port=8000)

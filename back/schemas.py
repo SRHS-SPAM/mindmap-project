@@ -1,18 +1,19 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 # --- 인증 및 사용자 기본 스키마 ---
 class UserBase(BaseModel):
-    email: str
-    name: str
-    
+    email: EmailStr # EmailStr import 추가
+    name: str # name 필드가 models.User에 없지만, schema에는 있으므로 유지
+
 class UserCreate(UserBase):
     """사용자 회원가입 시 필요 (password 포함)"""
-    email: EmailStr
-
-class UserCreate(BaseModel):
     password: str
+
+# 충돌하는 UserCreate 정의를 제거하고, 위의 것을 사용합니다.
+# class UserCreate(BaseModel):
+#     password: str
 
 class User(UserBase):
     id: int
@@ -58,14 +59,14 @@ class Memo(MemoBase):
     updated_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # --- 프로젝트 및 채팅 스키마 ---
 class ProjectUpdate(BaseModel):
     title: Optional[str] = Field(None, description="업데이트할 프로젝트 제목")
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         
 class ProjectCreate(BaseModel):
     title: str
@@ -78,8 +79,11 @@ class Project(BaseModel):
     last_chat_id_processed: int
     created_at: datetime
     
+    # members 필드를 위해 ProjectMemberSchema가 필요하지만, 순환 참조 문제로 인해 아래에 정의됨.
+    # 일단 ProjectBase를 통해 멤버 없는 Project 스키마 정의를 유지합니다.
+    
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ChatMessageCreate(BaseModel):
     content: str
@@ -124,17 +128,17 @@ class ProjectMemberSchema(BaseModel):
     class Config:
         from_attributes = True
 
-# --- 프로젝트 스키마 ---
+# --- 프로젝트 스키마 (멤버 포함) ---
+# 기존 Project 스키마를 덮어쓰거나, ProjectWithMembers 등으로 이름을 바꾸는 것이 좋지만, 
+# 기존 코드 구조 유지를 위해 ProjectBase를 기반으로 최종 Project 스키마를 재정의합니다.
 class ProjectBase(BaseModel):
     title: str
 
-class ProjectCreate(ProjectBase):
-    pass
+# ProjectCreate와 ProjectUpdate는 위에 이미 정의되어 있으므로 생략
+# class ProjectCreate(ProjectBase): pass
+# class ProjectUpdate(BaseModel): title: Optional[str] = None
 
-class ProjectUpdate(BaseModel):
-    title: Optional[str] = None
-
-class Project(ProjectBase):
+class Project(ProjectBase): # 최종적으로 라우터에서 사용될 Project 스키마
     id: int
     created_at: datetime
     is_generating: bool = False
