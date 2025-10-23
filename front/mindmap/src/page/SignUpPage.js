@@ -90,7 +90,7 @@ const SignUpPage = () => {
                                 type="text" 
                                 id="name"
                                 className="in" 
-                                placeholder="이름 / 사용자명" // 사용자가 식별하기 쉽게 레이블 변경
+                                placeholder="USER NAME" // 사용자가 식별하기 쉽게 레이블 변경
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 required
@@ -101,7 +101,7 @@ const SignUpPage = () => {
                                 type="email" 
                                 id="email"
                                 className="in" 
-                                placeholder="이메일 주소" // 사용자가 식별하기 쉽게 레이블 변경
+                                placeholder="EMAIL" // 사용자가 식별하기 쉽게 레이블 변경
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -112,7 +112,7 @@ const SignUpPage = () => {
                                 type="password" 
                                 id="password"
                                 className="in" 
-                                placeholder="비밀번호"
+                                placeholder="PASSWORLD"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
@@ -123,7 +123,7 @@ const SignUpPage = () => {
                                 type="password" 
                                 id="confirmPassword"
                                 className="in" 
-                                placeholder="비밀번호 확인"
+                                placeholder="PASSWORD CHICK"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 required
@@ -143,7 +143,7 @@ const SignUpPage = () => {
                             {/* Find ID/Pass는 현재 기능이 없으므로 비활성화된 것처럼 처리 */}
                             <p style={{ opacity: 0.6, cursor: 'default' }}>Find ID</p>
                             <p style={{ opacity: 0.6, cursor: 'default' }}>Find Pass</p>
-                        </div>                
+                        </div>
                         
                         {/* 회원가입 버튼 */}
                         <button type="submit" className='go_s' disabled={isLoading}>

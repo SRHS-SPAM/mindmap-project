@@ -74,7 +74,7 @@ const LoginPage = () => {
                                 type="email" 
                                 id="email"
                                 className="in" // 기존 클래스 이름 적용
-                                placeholder="ID (이메일)"
+                                placeholder="EMAIL"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -85,7 +85,7 @@ const LoginPage = () => {
                                 type="password" 
                                 id="password"
                                 className="in" // 기존 클래스 이름 적용
-                                placeholder="PASS WORLD"
+                                placeholder="PASSWORLD"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
