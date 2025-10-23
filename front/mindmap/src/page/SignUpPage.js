@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import "./SignPage.css"
+
 // TODO: 실제 FastAPI 백엔드 주소로 변경하세요.
 const API_BASE_URL = 'http://localhost:8000'; 
 
@@ -29,7 +31,7 @@ const SignUpPage = () => {
 
         // FastAPI 백엔드의 signup 엔드포인트 호출
         try {
-            const response = await fetch(`${API_BASE_URL}/signup`, {
+            const response = await fetch(`${API_BASE_URL}/api/v1/auth/signup`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -74,124 +76,9 @@ const SignUpPage = () => {
         }
     }, [name, email, password, confirmPassword, navigate]); // name을 의존성 배열에 추가
     
-    // 이전에 사용된 클래스 이름에 대한 스타일 (파일 종속성 방지를 위해 인라인으로 포함)
-    const styles = `
-        /* 기본 레이아웃 스타일 */
-        .wrap_s {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #f7f7f7;
-            padding: 20px;
-        }
-
-        .text_wrap_s {
-            background: #ffffff;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-        }
-
-        /* 제목 스타일 */
-        .main_text_s {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #333;
-            margin-bottom: 30px;
-        }
-
-        /* 입력 필드 그룹 스타일 */
-        .in_wrap {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        /* 입력 필드 스타일 */
-        .in {
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 1rem;
-            width: 100%;
-            transition: border-color 0.3s;
-        }
-
-        .in:focus {
-            border-color: #5a67d8; /* Indigo color for focus */
-            outline: none;
-        }
-
-        /* 추가 링크 스타일 (SignIn, Find ID/Pass) */
-        .add {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
-            color: #5a67d8;
-            margin-bottom: 30px;
-        }
-
-        .add p {
-            cursor: pointer;
-            transition: color 0.3s;
-            padding: 5px;
-        }
-        
-        .add p:hover {
-            color: #3f51b5;
-        }
-
-        /* 회원가입 버튼 스타일 */
-        .go_s {
-            width: 100%;
-            padding: 12px;
-            background-color: #5a67d8; /* Indigo color */
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.3s, opacity 0.3s;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .go_s:hover:not(:disabled) {
-            background-color: #3f51b5;
-        }
-        
-        .go_s:disabled {
-            background-color: #a0aec0; /* Gray when loading/disabled */
-            cursor: not-allowed;
-            opacity: 0.7;
-        }
-
-        /* 버튼 텍스트 스타일 */
-        .sub_text {
-            color: #ffffff;
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin: 0; /* p 태그의 기본 마진 제거 */
-        }
-        
-        /* 에러 메시지 스타일 */
-        .error-message {
-            background-color: #fee2e2;
-            color: #cc0000;
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #f9acaa;
-            margin-bottom: 15px;
-            font-size: 0.9rem;
-            text-align: left;
-        }
-    `;
 
     return (
         <>
-            <style>{styles}</style>
             <div className="wrap_s">
                 <div className='text_wrap_s'>
                     <h1 className='main_text_s'>SIGN UP</h1>
