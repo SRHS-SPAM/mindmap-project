@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from datetime import timedelta
 from ..database import get_db
 from ..security import get_password_hash, verify_password, create_access_token, get_current_active_user
-from datetime import timedelta
-
-# Pydantic User 스키마에 UserSchema라는 별칭을 부여하여 SQLAlchemy User 모델과의 충돌을 방지합니다.
 from ..models import User 
-from ..schemas import UserCreate, User as UserSchema, Token 
+# 🚨 수정됨: UserLogin 스키마를 추가로 임포트합니다.
+from ..schemas import UserCreate, UserLogin, User as UserSchema, Token 
 
 router = APIRouter()
 
@@ -23,7 +22,7 @@ def signup_user(user: UserCreate, db: Session = Depends(get_db)):
     # 비밀번호 해시
     hashed_password = get_password_hash(user.password)
     
-    # 🌟 수정: User 인스턴스 생성 시 name 필드 추가
+    # User 인스턴스 생성 시 name 필드 추가
     db_user = User(
         email=user.email, 
         name=user.name, # name 필드 추가
@@ -35,8 +34,9 @@ def signup_user(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return db_user
 
+# 🚨 수정됨: 입력 스키마를 UserCreate 대신 UserLogin으로 변경했습니다.
 @router.post("/login", response_model=Token, summary="일반 로그인")
-def login_for_access_token(user: UserCreate, db: Session = Depends(get_db)):
+def login_for_access_token(user: UserLogin, db: Session = Depends(get_db)):
     # 사용자 이메일로 조회
     db_user = db.query(User).filter(User.email == user.email).first()
     

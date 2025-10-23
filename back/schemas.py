@@ -3,13 +3,29 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 # --- 인증 및 사용자 기본 스키마 ---
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from datetime import datetime
+
+# --- 인증 및 사용자 기본 스키마 ---
 class UserBase(BaseModel):
     email: EmailStr
     name: str # models.User에도 name 컬럼이 존재함
 
+# 🚨 수정: UserLogin 스키마를 새로 정의하여 name 필드를 제외합니다.
+class UserLogin(BaseModel):
+    """사용자 로그인 시 필요 (email과 password만 포함)"""
+    email: EmailStr
+    password: str
+
 class UserCreate(UserBase):
     """사용자 회원가입 시 필요 (password 포함)"""
     password: str
+
+class Token(BaseModel):
+    """JWT 토큰 응답 모델"""
+    access_token: str
+    token_type: str
 
 class User(UserBase):
     """사용자 정보 응답 모델 (password 제외)"""
@@ -17,12 +33,16 @@ class User(UserBase):
     is_active: bool
     last_activity: Optional[datetime] = None # 온라인 상태 확인용
     is_online: bool # models.User에 is_online 필드 추가됨
+    
+    # 🚨 추가: 소셜 로그인 필드 (optional)
+    social_provider: Optional[str] = None 
 
     class Config:
         from_attributes = True
 
 class UserUpdateStatus(BaseModel):
     timestamp: datetime # 클라이언트가 현재 시간을 보냄
+
 
 # 토큰 스키마 (인증 라우터에서 사용)
 class Token(BaseModel):

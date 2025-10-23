@@ -23,7 +23,7 @@ const MessageBox = ({ message, type, onClose }) => (
                 style={{
                     ...messageBoxStyles.button,
                     backgroundColor: type === 'error' ? '#DC2626' : '#059669',
-                    hoverBackgroundColor: type === 'error' ? '#B91C1C' : '#047857' // 실제 hover는 CSS에서 처리
+                    hoverBackgroundColor: type === 'error' ? '#B91C1C' : '#047857'
                 }}
             >
                 확인
@@ -101,30 +101,38 @@ const App = () => {
         setIsLoading(true);
 
         try {
-            // FastAPI OAuth2PasswordRequestForm에 맞게 폼 데이터 형식으로 변환
-            const formData = new URLSearchParams();
-            // OAuth2는 ID 필드를 'username'으로 기대합니다. 
-            // 프론트엔드에서는 이메일을 사용하므로 'username'으로 매핑합니다.
-            formData.append('username', email); 
-            formData.append('password', password);
+            // 🚨 수정된 로직: FastAPI의 Pydantic 모델(UserCreate)이 예상하는
+            // JSON 형식의 페이로드를 생성하고 'email' 키를 사용합니다.
+            const payload = {
+                email: email, // Pydantic 모델에 맞게 'email' 사용
+                password: password
+            };
 
-            // 📢 디버깅 로그: 서버로 보내는 실제 본문 문자열을 확인합니다.
-            const requestBody = formData.toString();
-            console.log("Request Content-Type:", 'application/x-www-form-urlencoded');
-            console.log("Request Body (Form Data):", requestBody);
+            const requestBody = JSON.stringify(payload);
+            console.log("Request Content-Type:", 'application/json');
+            console.log("Request Body (JSON):", requestBody);
 
 
             const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
                 method: 'POST',
-                // ⚠️ Content-Type은 필수입니다! 
+                // ⚠️ Content-Type을 'application/json'으로 설정합니다.
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/json', // 🚨 수정된 부분
                 },
-                // 폼 데이터를 문자열로 변환하여 본문으로 전송합니다.
-                body: requestBody,
+                // JSON 문자열을 본문으로 전송합니다.
+                body: requestBody, // 🚨 수정된 부분
             });
 
+            // 응답이 비어있지 않은지 확인 후 JSON으로 파싱 시도
+            // ERR_EMPTY_RESPONSE를 방지하기 위해 response.json() 호출 전 상태 코드를 확인합니다.
+            if (!response.bodyUsed && response.status === 204) {
+                 // 204 No Content는 토큰이 없으므로 오류로 간주합니다.
+                 throw new Error("서버에서 빈 응답(204 No Content)을 받았습니다. 백엔드 구현을 확인해주세요.");
+            }
+            
+            // 응답 본문 파싱
             const data = await response.json();
+
 
             if (response.ok) {
                 // 3. 성공: JWT 토큰 저장 및 홈으로 이동
@@ -141,26 +149,26 @@ const App = () => {
                 // 4. 실패: 에러 메시지 표시
                 let errorMessage = data.detail || `로그인 실패. HTTP 상태코드: ${response.status}. ID와 비밀번호를 확인해주세요.`;
                 
-                // Pydantic Validation Errors 처리 (있다면)
+                // Pydantic Validation Errors 처리
                 if (Array.isArray(data.detail)) {
                      errorMessage = data.detail.map(err => {
-                        const loc = err.loc.length > 1 ? err.loc[err.loc.length - 1] : '데이터';
-                        let msg = err.msg;
-                        if (msg.includes("field required")) msg = "필수 입력 항목입니다.";
-                        if (msg.includes("value is not a valid email address")) msg = "올바른 이메일 형식이 아닙니다.";
-                        // 422 오류 메시지를 그대로 포함
-                        if (response.status === 422 && err.type === "value_error.missing") {
-                             msg = `필드 [${loc}]이(가) 누락되었습니다. (FastAPI OAuth2는 'username'과 'password'를 폼 데이터로 기대함)`;
-                        }
-                        return `[${loc}] ${msg}`;
-                    }).join('\n');
+                         const loc = err.loc.length > 1 ? err.loc[err.loc.length - 1] : '데이터';
+                         let msg = err.msg;
+                         if (msg.includes("field required")) msg = "필수 입력 항목입니다.";
+                         if (msg.includes("value is not a valid email address")) msg = "올바른 이메일 형식이 아닙니다.";
+                         // 422 오류 메시지를 명확히 전달
+                         if (response.status === 422 && err.type === "missing") {
+                              msg = `필드 [${loc}]이(가) 누락되었습니다. (FastAPI는 JSON 형식으로 'email'과 'password'를 기대함)`;
+                         }
+                         return `[${loc}] ${msg}`;
+                     }).join('\n');
                 } else if (response.status === 422) {
                     // 사용자 정의 422 오류 메시지 처리
                     if (data.detail && typeof data.detail === 'string') {
                          errorMessage = `백엔드 유효성 검사 오류 (422):\n${data.detail}`;
-                    } else if (data.detail && data.detail.includes("valid dictionary or object")) {
-                        // 사용자가 겪은 오류 메시지를 명확히 표시
-                        errorMessage = `🚨 데이터 형식 오류 (422) 🚨\n백엔드가 유효한 폼 데이터를 읽지 못했습니다.\n\n[FastAPI 예상 형식] Content-Type: application/x-www-form-urlencoded, Body: username={email}&password={password}`;
+                    } else if (data.detail && data.detail.includes("value is not a valid dictionary or object")) {
+                        // 수정 후에도 422 오류가 발생하면, 페이로드가 JSON이 아니라는 뜻이므로 명확히 안내합니다.
+                         errorMessage = `🚨 데이터 형식 오류 (422) 🚨\n백엔드가 유효한 JSON 데이터를 읽지 못했습니다.\n\n[FastAPI 예상 형식] Content-Type: application/json, Body: {"email": "...", "password": "..."}`;
                     }
                 }
 
@@ -171,7 +179,7 @@ const App = () => {
         } catch (err) {
             // 네트워크 오류 등 예외 처리
             console.error('Login Error:', err);
-            const networkError = '네트워크 오류가 발생했습니다. 서버 연결 상태를 확인해주세요.';
+            const networkError = `네트워크 오류가 발생했습니다. 서버 연결 상태를 확인해주세요. 오류 메시지: ${err.message}`;
             setError(networkError);
             setMessageBox({ type: 'error', message: networkError });
         } finally {
@@ -182,159 +190,6 @@ const App = () => {
 
     return (
         <>
-            <style>
-                {`
-                    /* 기본 설정 */
-                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap');
-                    body { font-family: 'Inter', sans-serif; background-color: #f7f7f7; }
-
-                    /* 메인 컨테이너 */
-                    .wrap_s {
-                        min-height: 100vh;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        padding: 1rem;
-                        background-color: #f7f7f7;
-                    }
-
-                    /* 폼 카드 */
-                    .text_wrap_s {
-                        width: 100%;
-                        max-width: 400px;
-                        background: #ffffff;
-                        border-radius: 12px;
-                        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-                        padding: 2.5rem;
-                        box-sizing: border-box;
-                        display: flex;
-                        flex-direction: column;
-                        gap: 1.5rem;
-                    }
-
-                    /* 제목 */
-                    .main_text_s {
-                        font-size: 2.5rem;
-                        font-weight: 800;
-                        color: #1a202c;
-                        text-align: center;
-                        margin-bottom: 0.5rem;
-                    }
-                    
-                    /* 인풋 필드 컨테이너 */
-                    .in_wrap {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 0.75rem;
-                    }
-
-                    /* 인풋 필드 */
-                    .in {
-                        width: 100%;
-                        padding: 0.75rem 1rem;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 8px;
-                        font-size: 1rem;
-                        transition: border-color 0.2s, box-shadow 0.2s;
-                    }
-                    .in:focus {
-                        outline: none;
-                        border-color: #4c51bf;
-                        box-shadow: 0 0 0 3px rgba(76, 81, 191, 0.2);
-                    }
-
-                    /* 에러 메시지 */
-                    .error-message {
-                        font-size: 0.875rem;
-                        color: #e53e3e;
-                        font-weight: 500;
-                        background-color: #fff5f5;
-                        padding: 0.75rem;
-                        border-radius: 8px;
-                        border: 1px solid #fc8181;
-                        white-space: pre-wrap;
-                        text-align: center;
-                        margin-top: 1rem;
-                    }
-
-                    /* 하단 추가 옵션 (SignUp, Find ID/Pass) */
-                    .add {
-                        display: flex;
-                        justify-content: space-between;
-                        font-size: 0.875rem;
-                        color: #718096;
-                        margin-top: 1rem;
-                    }
-                    .add p {
-                        cursor: pointer;
-                        transition: color 0.2s;
-                    }
-                    .add p:first-child {
-                        color: #4c51bf;
-                        font-weight: 600;
-                    }
-                    .add p:first-child:hover {
-                        color: #6a6ee0;
-                    }
-
-                    /* 로그인 버튼 */
-                    .go_s {
-                        width: 100%;
-                        padding: 1rem;
-                        border: none;
-                        border-radius: 8px;
-                        background-color: #4c51bf;
-                        color: white;
-                        font-weight: 700;
-                        font-size: 1.125rem;
-                        cursor: pointer;
-                        transition: background-color 0.2s, opacity 0.2s;
-                        margin-top: 1.5rem;
-                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 0.5rem;
-                    }
-                    .go_s:hover:not(:disabled) {
-                        background-color: #6a6ee0;
-                    }
-                    .go_s:disabled {
-                        background-color: #a0aec0;
-                        cursor: not-allowed;
-                        opacity: 0.7;
-                    }
-                    
-                    .sub_text {
-                        margin: 0;
-                    }
-
-                    /* 로딩 스피너 (순수 CSS 버전) */
-                    .spinner {
-                        border: 4px solid rgba(255, 255, 255, 0.3);
-                        border-top: 4px solid #ffffff;
-                        border-radius: 50%;
-                        width: 20px;
-                        height: 20px;
-                        animation: spin 1s linear infinite;
-                    }
-
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-
-                    /* 미디어 쿼리 (선택적) */
-                    @media (max-width: 600px) {
-                        .text_wrap_s {
-                            padding: 1.5rem;
-                        }
-                        .main_text_s {
-                            font-size: 2rem;
-                        }
-                    }
-                `}
-            </style>
             <div className="wrap_s">
                 <div className='text_wrap_s'>
                     <h1 className='main_text_s'>SIGN IN</h1>
@@ -347,7 +202,8 @@ const App = () => {
                                 type="email" 
                                 id="email"
                                 className="in" 
-                                placeholder="EMAIL (FastAPI 'username' 필드)"
+                                // 🚨 힌트 텍스트 변경: 이제 'email' 키를 사용합니다.
+                                placeholder="email" 
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -358,7 +214,7 @@ const App = () => {
                                 type="password" 
                                 id="password"
                                 className="in"
-                                placeholder="PASSWORLD"
+                                placeholder="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
