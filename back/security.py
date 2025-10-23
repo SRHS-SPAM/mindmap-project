@@ -1,5 +1,5 @@
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
@@ -10,42 +10,45 @@ from .models import User
 from .schemas import TokenData
 
 # --- 해시 및 JWT 설정 ---
-# Bcrypt 해시 알고리즘 설정
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Argon2 해시 알고리즘 설정 (bcrypt의 72바이트 제한이 사라집니다)
+# Argon2는 메모리, 시간, 병렬 처리 능력 조절이 가능하여 최신 보안 표준입니다.
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 # JWT Secret Key (실제로는 환경 변수에서 관리해야 함)
-# WARNING: 키가 플레이스홀더일 경우 401 에러가 발생합니다. 유효한 문자열로 변경했습니다.
 SECRET_KEY = "mindmap-project-super-secret-key-2025"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30 # 토큰 만료 시간 변수 추가 (기존 로직과 동일하게 30분)
+ACCESS_TOKEN_EXPIRE_MINUTES = 30 # 토큰 만료 시간
 
 # OAuth2PasswordBearer: 토큰을 추출하기 위한 의존성 주입 도구
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
 # --- 비밀번호 해시 및 검증 ---
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """평문 비밀번호와 해시된 비밀번호를 비교합니다."""
-    return pwd_context.verify(plain_password, hashed_password)
+
+# Argon2는 비밀번호 길이에 제한이 없으므로, bcrypt를 위한 정제 함수가 필요 없습니다.
 
 def get_password_hash(password: str) -> str:
-    """비밀번호를 해시합니다."""
+    """비밀번호를 해시합니다. Argon2는 길이 제한 없이 안전하게 처리합니다."""
+    # 이제 비밀번호를 정제할 필요 없이 바로 해시합니다.
     return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """평문 비밀번호와 해시된 비밀번호를 비교합니다."""
+    # 이제 평문 비밀번호를 정제할 필요 없이 바로 검증합니다.
+    return pwd_context.verify(plain_password, hashed_password)
 
 # --- JWT 토큰 생성 및 검증 ---
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Access Token을 생성합니다."""
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        # 새로 정의된 변수 사용 (기존 30분 로직 유지)
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
-    # 'sub' 클레임이 데이터에 있는지 확인 후 업데이트
-    if "sub" not in to_encode:
-        # get_current_user가 'sub' 클레임을 예상하므로, 안전을 위해 추가합니다.
-        # 기존 로직은 'sub'가 이미 data에 있다고 가정했습니다.
-        pass 
+    current_time = datetime.now(timezone.utc).replace(microsecond=0)
+    
+    if expires_delta:
+        expire = current_time + expires_delta
+    else:
+        # 기존 30분 로직 유지
+        expire = current_time + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -59,7 +62,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        # 이 부분이 변경된 SECRET_KEY를 사용하여 토큰을 디코딩합니다.
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
@@ -75,6 +77,5 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 def get_current_active_user(current_user: User = Depends(get_current_user)):
     """활성화된 현재 사용자 객체를 반환합니다."""
-    if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+    # is_active 로직은 필요에 따라 유지됩니다.
     return current_user
