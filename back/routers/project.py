@@ -29,15 +29,15 @@ from sqlalchemy.orm import joinedload
 
 # 임시 멤버 검증 함수 (제공된 코드에 없어서 임시로 정의)
 def verify_project_member(db: Session, project_id: int, user_id: int):
-     member = db.query(ORMProjectMember).filter(
-         ORMProjectMember.project_id == project_id,
-         ORMProjectMember.user_id == user_id
-     ).first()
-     if not member:
-         raise HTTPException(
-             status_code=403, 
-             detail="User is not a member of this project."
-         )
+    member = db.query(ORMProjectMember).filter(
+        ORMProjectMember.project_id == project_id,
+        ORMProjectMember.user_id == user_id
+    ).first()
+    if not member:
+        raise HTTPException(
+            status_code=403, 
+            detail="User is not a member of this project."
+        )
 
 router = APIRouter()
 
