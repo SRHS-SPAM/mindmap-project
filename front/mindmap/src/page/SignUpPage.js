@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import "./SignPage.css"
 
 
@@ -78,6 +79,8 @@ const messageBoxStyles = {
 
 
 const App = () => {
+    const navigation = useNavigate();
+
     // useNavigate를 대체하는 더미 함수 (단일 파일 환경)
     const navigate = (path) => console.log(`Navigating to: ${path}`);
     
@@ -137,6 +140,7 @@ const App = () => {
                     type: 'success', 
                     message: '회원가입이 성공적으로 완료되었습니다. 로그인 페이지로 이동합니다.' 
                 });
+                navigation('/login');
             } else {
                 // 4. 실패: FastAPI 오류 객체 처리 및 에러 메시지 표시 로직 강화
                 let displayMessage = '회원가입에 실패했습니다. 입력 정보를 다시 확인해주세요.';
@@ -238,7 +242,7 @@ const App = () => {
                         )}
 
                         <div className="add">
-                            <p onClick={() => navigate('/login')}>SignIn</p>
+                            <p onClick={() => navigation('/login')}>SignIn</p>
                             {/* Find ID/Pass는 현재 기능이 없으므로 비활성화된 것처럼 처리 */}
                             <p style={{ opacity: 0.6, cursor: 'default' }}>Find ID</p>
                             <p style={{ opacity: 0.6, cursor: 'default' }}>Find Pass</p>

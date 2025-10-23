@@ -1,4 +1,7 @@
 import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import "./SignPage.css"
+
 
 // TODO: 실제 FastAPI 백엔드 주소로 변경하세요.
 const API_BASE_URL = 'http://localhost:8000'; 
@@ -79,6 +82,8 @@ const messageBoxStyles = {
 
 
 const App = () => {
+    const navigation = useNavigate();
+
     // 1. 상태 관리: 이메일(ID), 비밀번호, 에러 메시지
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -135,7 +140,7 @@ const App = () => {
                     type: 'success', 
                     message: `로그인 성공! JWT 토큰이 저장되었습니다:\n${data.access_token.substring(0, 30)}...`
                 });
-                navigate('/home');
+                navigation('/home');
 
             } else {
                 // 4. 실패: 에러 메시지 표시
@@ -182,159 +187,6 @@ const App = () => {
 
     return (
         <>
-            <style>
-                {`
-                    /* 기본 설정 */
-                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap');
-                    body { font-family: 'Inter', sans-serif; background-color: #f7f7f7; }
-
-                    /* 메인 컨테이너 */
-                    .wrap_s {
-                        min-height: 100vh;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        padding: 1rem;
-                        background-color: #f7f7f7;
-                    }
-
-                    /* 폼 카드 */
-                    .text_wrap_s {
-                        width: 100%;
-                        max-width: 400px;
-                        background: #ffffff;
-                        border-radius: 12px;
-                        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-                        padding: 2.5rem;
-                        box-sizing: border-box;
-                        display: flex;
-                        flex-direction: column;
-                        gap: 1.5rem;
-                    }
-
-                    /* 제목 */
-                    .main_text_s {
-                        font-size: 2.5rem;
-                        font-weight: 800;
-                        color: #1a202c;
-                        text-align: center;
-                        margin-bottom: 0.5rem;
-                    }
-                    
-                    /* 인풋 필드 컨테이너 */
-                    .in_wrap {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 0.75rem;
-                    }
-
-                    /* 인풋 필드 */
-                    .in {
-                        width: 100%;
-                        padding: 0.75rem 1rem;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 8px;
-                        font-size: 1rem;
-                        transition: border-color 0.2s, box-shadow 0.2s;
-                    }
-                    .in:focus {
-                        outline: none;
-                        border-color: #4c51bf;
-                        box-shadow: 0 0 0 3px rgba(76, 81, 191, 0.2);
-                    }
-
-                    /* 에러 메시지 */
-                    .error-message {
-                        font-size: 0.875rem;
-                        color: #e53e3e;
-                        font-weight: 500;
-                        background-color: #fff5f5;
-                        padding: 0.75rem;
-                        border-radius: 8px;
-                        border: 1px solid #fc8181;
-                        white-space: pre-wrap;
-                        text-align: center;
-                        margin-top: 1rem;
-                    }
-
-                    /* 하단 추가 옵션 (SignUp, Find ID/Pass) */
-                    .add {
-                        display: flex;
-                        justify-content: space-between;
-                        font-size: 0.875rem;
-                        color: #718096;
-                        margin-top: 1rem;
-                    }
-                    .add p {
-                        cursor: pointer;
-                        transition: color 0.2s;
-                    }
-                    .add p:first-child {
-                        color: #4c51bf;
-                        font-weight: 600;
-                    }
-                    .add p:first-child:hover {
-                        color: #6a6ee0;
-                    }
-
-                    /* 로그인 버튼 */
-                    .go_s {
-                        width: 100%;
-                        padding: 1rem;
-                        border: none;
-                        border-radius: 8px;
-                        background-color: #4c51bf;
-                        color: white;
-                        font-weight: 700;
-                        font-size: 1.125rem;
-                        cursor: pointer;
-                        transition: background-color 0.2s, opacity 0.2s;
-                        margin-top: 1.5rem;
-                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 0.5rem;
-                    }
-                    .go_s:hover:not(:disabled) {
-                        background-color: #6a6ee0;
-                    }
-                    .go_s:disabled {
-                        background-color: #a0aec0;
-                        cursor: not-allowed;
-                        opacity: 0.7;
-                    }
-                    
-                    .sub_text {
-                        margin: 0;
-                    }
-
-                    /* 로딩 스피너 (순수 CSS 버전) */
-                    .spinner {
-                        border: 4px solid rgba(255, 255, 255, 0.3);
-                        border-top: 4px solid #ffffff;
-                        border-radius: 50%;
-                        width: 20px;
-                        height: 20px;
-                        animation: spin 1s linear infinite;
-                    }
-
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-
-                    /* 미디어 쿼리 (선택적) */
-                    @media (max-width: 600px) {
-                        .text_wrap_s {
-                            padding: 1.5rem;
-                        }
-                        .main_text_s {
-                            font-size: 2rem;
-                        }
-                    }
-                `}
-            </style>
             <div className="wrap_s">
                 <div className='text_wrap_s'>
                     <h1 className='main_text_s'>SIGN IN</h1>
@@ -347,7 +199,7 @@ const App = () => {
                                 type="email" 
                                 id="email"
                                 className="in" 
-                                placeholder="EMAIL (FastAPI 'username' 필드)"
+                                placeholder="EMAIL"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -376,7 +228,7 @@ const App = () => {
                         {/* 기존 클래스 이름 적용: add */}
                         <div className="add">
                             {/* navigate는 console.log로 대체되며, 이 컴포넌트에서는 /signup을 가리킵니다. */}
-                            <p onClick={() => navigate('/signup')}>SignUp</p>
+                            <p onClick={() => navigation('/signup')}>SignUp</p>
                             {/* Find ID/Pass는 현재 기능이 없으므로 비활성화된 것처럼 처리 */}
                             <p style={{ opacity: 0.6, cursor: 'default' }}>Find ID</p>
                             <p style={{ opacity: 0.6, cursor: 'default' }}>Find Pass</p>
