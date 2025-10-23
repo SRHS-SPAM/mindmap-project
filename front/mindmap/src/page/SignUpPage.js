@@ -1,26 +1,110 @@
 import React, { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-
 import "./SignPage.css"
+
 
 // TODO: 실제 FastAPI 백엔드 주소로 변경하세요.
 const API_BASE_URL = 'http://localhost:8000'; 
 
-const SignUpPage = () => {
-    const navigate = useNavigate();
+// 메시지 박스 컴포넌트 (alert() 대신 사용)
+const MessageBox = ({ message, type, onClose }) => (
+    <div style={messageBoxStyles.overlay}>
+        <div style={{
+            ...messageBoxStyles.box,
+            borderColor: type === 'error' ? '#EF4444' : '#10B981',
+            boxShadow: type === 'error' ? '0 10px 15px -3px rgba(239, 68, 68, 0.1), 0 4px 6px -2px rgba(239, 68, 68, 0.05)' : '0 10px 15px -3px rgba(16, 185, 129, 0.1), 0 4px 6px -2px rgba(16, 185, 129, 0.05)'
+        }}>
+            <h3 style={messageBoxStyles.title}>
+                {type === 'error' ? '⚠️ 오류 발생' : '✅ 성공'}
+            </h3>
+            <p style={messageBoxStyles.content}>{message}</p>
+            <button
+                onClick={onClose}
+                style={{
+                    ...messageBoxStyles.button,
+                    backgroundColor: type === 'error' ? '#DC2626' : '#059669',
+                    hoverBackgroundColor: type === 'error' ? '#B91C1C' : '#047857' // 실제 hover는 CSS에서 처리
+                }}
+            >
+                확인
+            </button>
+        </div>
+    </div>
+);
+
+// 순수 CSS 스타일 정의
+const messageBoxStyles = {
+    overlay: {
+        position: 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
+        zIndex: 1000,
+    },
+    box: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: '0.75rem',
+        padding: '2rem',
+        maxWidth: '400px',
+        width: '100%',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1rem',
+        border: '2px solid',
+    },
+    title: {
+        fontSize: '1.25rem',
+        fontWeight: '700',
+        color: '#1F2937',
+    },
+    content: {
+        color: '#4B5563',
+        whiteSpace: 'pre-wrap',
+    },
+    button: {
+        width: '100%',
+        padding: '0.75rem',
+        borderRadius: '0.5rem',
+        fontWeight: '600',
+        color: 'white',
+        border: 'none',
+        cursor: 'pointer',
+        transition: 'background-color 0.15s ease-in-out',
+    }
+};
+
+
+const App = () => {
+    // useNavigate를 대체하는 더미 함수 (단일 파일 환경)
+    const navigate = (path) => console.log(`Navigating to: ${path}`);
     
-    // 1. 상태 관리: name (새로 추가), email, password, 비밀번호 확인, 에러 메시지
-    const [name, setName] = useState(''); // 이름/사용자명 필드 추가
+    // 1. 상태 관리
+    const [name, setName] = useState(''); 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
+    
+    // UI 및 로딩 상태
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [messageBox, setMessageBox] = useState(null); 
+
+    // 메시지 박스 닫기 핸들러
+    const closeMessageBox = useCallback(() => {
+        setMessageBox(null);
+        if (messageBox?.type === 'success') {
+            navigate('/login'); // 성공 시에만 라우팅 시도
+        }
+    }, [messageBox, navigate]);
 
     // 2. 회원가입 처리 함수
     const handleSignUp = useCallback(async (e) => {
         e.preventDefault(); 
         setError('');
+        setMessageBox(null);
         
         if (password !== confirmPassword) {
             setError('비밀번호와 비밀번호 확인이 일치하지 않습니다.');
@@ -38,7 +122,7 @@ const SignUpPage = () => {
                 },
                 // 백엔드 UserCreate 스키마에 맞춰 name, email, password 전송
                 body: JSON.stringify({ 
-                    name, // 새로 추가된 name 필드
+                    name, 
                     email, 
                     password 
                 }),
@@ -47,34 +131,49 @@ const SignUpPage = () => {
             const data = await response.json();
 
             if (response.ok) {
-                // 3. 성공: 로그인 페이지로 이동
+                // 3. 성공: 메시지 박스 표시
                 console.log("Sign up successful:", data);
-                navigate('/login');
+                setMessageBox({ 
+                    type: 'success', 
+                    message: '회원가입이 성공적으로 완료되었습니다. 로그인 페이지로 이동합니다.' 
+                });
             } else {
                 // 4. 실패: FastAPI 오류 객체 처리 및 에러 메시지 표시 로직 강화
-                let displayMessage = '회원가입에 실패했습니다. 입력 정보를 확인해주세요.';
+                let displayMessage = '회원가입에 실패했습니다. 입력 정보를 다시 확인해주세요.';
                 
-                // --- 에러 디버깅 로직 강화 (React 렌더링 오류 방지) ---
                 if (Array.isArray(data.detail)) {
                     displayMessage = data.detail.map(err => {
                         const loc = err.loc.length > 1 ? err.loc[err.loc.length - 1] : '데이터';
-                        return `[${loc}] ${err.msg}`;
-                    }).join('; ');
+                        
+                        // Pydantic 오류 메시지를 한국어로 변환하거나 그대로 표시
+                        let msg = err.msg;
+                        if (msg.includes("field required")) msg = "필수 입력 항목입니다.";
+                        if (msg.includes("value is not a valid email address")) msg = "올바른 이메일 형식이 아닙니다.";
+
+                        return `[${loc}] ${msg}`;
+                    }).join('\n');
 
                 } else if (data.detail && typeof data.detail === 'string') {
                     displayMessage = data.detail;
                 }
                 
                 setError(displayMessage);
+                setMessageBox({ 
+                    type: 'error', 
+                    message: displayMessage 
+                });
             }
         } catch (err) {
             // 네트워크 오류 등 예외 처리
             console.error('Sign Up Error:', err);
-            setError('네트워크 오류가 발생했습니다. 서버 연결 상태를 확인해주세요.');
+            setMessageBox({ 
+                type: 'error', 
+                message: '네트워크 오류가 발생했습니다. 서버 연결 상태를 확인해주세요.' 
+            });
         } finally {
             setIsLoading(false);
         }
-    }, [name, email, password, confirmPassword, navigate]); // name을 의존성 배열에 추가
+    }, [name, email, password, confirmPassword]);
     
 
     return (
@@ -147,15 +246,28 @@ const SignUpPage = () => {
                         
                         {/* 회원가입 버튼 */}
                         <button type="submit" className='go_s' disabled={isLoading}>
-                            <p className='sub_text'>
-                                {isLoading ? '가입 중...' : 'Sign Up >'}
-                            </p>
+                            {isLoading ? (
+                                <>
+                                    <div className="spinner"></div>
+                                    <p className='sub_text'>가입 중...</p>
+                                </>
+                            ) : (
+                                <p className='sub_text'>Sign Up</p>
+                            )}
                         </button>
                     </form>
                 </div>
             </div>
+            {/* 메시지 박스 렌더링 */}
+            {messageBox && (
+                <MessageBox 
+                    message={messageBox.message} 
+                    type={messageBox.type} 
+                    onClose={closeMessageBox} 
+                />
+            )}
         </>
     );
 }
 
-export default SignUpPage;
+export default App;
