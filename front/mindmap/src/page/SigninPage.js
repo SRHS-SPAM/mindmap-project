@@ -1,4 +1,7 @@
 import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import "./SignPage.css"
+
 
 // TODO: 실제 FastAPI 백엔드 주소로 변경하세요.
 const API_BASE_URL = 'http://localhost:8000'; 
@@ -79,6 +82,8 @@ const messageBoxStyles = {
 
 
 const App = () => {
+    const navigation = useNavigate();
+
     // 1. 상태 관리: 이메일(ID), 비밀번호, 에러 메시지
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -143,7 +148,7 @@ const App = () => {
                     type: 'success', 
                     message: `로그인 성공! JWT 토큰이 저장되었습니다:\n${data.access_token.substring(0, 30)}...`
                 });
-                navigate('/home');
+                navigation('/home');
 
             } else {
                 // 4. 실패: 에러 메시지 표시
@@ -232,7 +237,7 @@ const App = () => {
                         {/* 기존 클래스 이름 적용: add */}
                         <div className="add">
                             {/* navigate는 console.log로 대체되며, 이 컴포넌트에서는 /signup을 가리킵니다. */}
-                            <p onClick={() => navigate('/signup')}>SignUp</p>
+                            <p onClick={() => navigation('/signup')}>SignUp</p>
                             {/* Find ID/Pass는 현재 기능이 없으므로 비활성화된 것처럼 처리 */}
                             <p style={{ opacity: 0.6, cursor: 'default' }}>Find ID</p>
                             <p style={{ opacity: 0.6, cursor: 'default' }}>Find Pass</p>
