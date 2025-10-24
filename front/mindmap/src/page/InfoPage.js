@@ -366,6 +366,7 @@ const ProfileScreen = () => {
                 </div>
                 
 
+
                 {/* 기타 버튼 */}
                 <div className="button-footer">
                     <button 
