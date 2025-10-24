@@ -13,6 +13,7 @@ import AboutPage from './page/AboutPage';
 import MemoPage from './page/MemoPage';
 import MindMapPage from './page/MindMapPage';
 import NotificationPage from './page/NotificationPage';
+import InfoPage from './page/InfoPage';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
         <Route path="/mind" element={<MindMapPage />} />
         <Route path="/memo" element={<MemoPage />} />
         <Route path="/notification" element={<NotificationPage />} />
+         <Route path="/info" element={<InfoPage />} />
       </Routes>
     </Router>
   );

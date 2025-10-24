@@ -10,7 +10,7 @@ const Friend = () => {
         <div className="wrap_f">
             <Header />
             <div className="info_a">
-                <button className='go_a' onClick={() => navigation('/login')}>
+                <button className='go_a' onClick={() => navigation('/info')}>
                     <p className='sub_text'>ACCOUNT DETAILS</p>
                 </button>
                 <button className='go_a' onClick={() => navigation('/login')}>
