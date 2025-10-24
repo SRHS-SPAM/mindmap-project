@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+// 🚨 useNavigate hook을 사용합니다.
+import { useNavigate } from 'react-router-dom';
 
 // TODO: 실제 FastAPI 백엔드 주소로 변경하세요.
 const API_BASE_URL = 'http://localhost:8000'; 
@@ -8,7 +10,7 @@ const MessageBox = ({ message, type, onClose }) => (
     <div style={messageBoxStyles.overlay}>
         <div style={{
             ...messageBoxStyles.box,
-            borderColor: type === 'error' ? '#EF4444' : (type === 'success' ? '#10B981' : '#F59E0B'),
+            borderColor: type === 'error' ? '#EF4444' : (type === 'success' ? '#10B981' : (type === 'info' ? '#F59E0B' : '#60A5FA')),
             boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
         }}>
             <h3 style={messageBoxStyles.title}>
@@ -19,7 +21,7 @@ const MessageBox = ({ message, type, onClose }) => (
                 onClick={onClose}
                 style={{
                     ...messageBoxStyles.button,
-                    backgroundColor: type === 'error' ? '#DC2626' : (type === 'success' ? '#059669' : '#D97706'),
+                    backgroundColor: type === 'error' ? '#DC2626' : (type === 'success' ? '#059669' : (type === 'info' ? '#D97706' : '#2563EB')),
                 }}
             >
                 확인
@@ -77,14 +79,21 @@ const messageBoxStyles = {
 // ------------------------------------
 // 메인 프로필 화면 컴포넌트
 // ------------------------------------
-const ProfileScreen = ({ navigate }) => {
+const ProfileScreen = () => {
+    // useNavigate 훅을 사용하여 라우팅 함수를 가져옵니다.
+    const navigation = useNavigate();
+    
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isEditing, setIsEditing] = useState(false);
-    const [tempName, setTempName] = useState('');
+    
+    // 편집 가능한 상태
+    const [tempDisplayName, setTempDisplayName] = useState(''); 
+    const [tempEmail, setTempEmail] = useState(''); 
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [isEditingEmail, setIsEditingEmail] = useState(false);
+
     const [profileImage, setProfileImage] = useState('https://placehold.co/120x120/A5B4FC/ffffff?text=Profile');
     const [messageBox, setMessageBox] = useState(null);
-    const [isSaving, setIsSaving] = useState(false);
 
     const fileInputRef = useRef(null);
     
@@ -97,7 +106,8 @@ const ProfileScreen = ({ navigate }) => {
     const fetchUserProfile = useCallback(async () => {
         const token = localStorage.getItem('access_token');
         if (!token) {
-            navigate('/');
+            // 토큰이 없으면 로그인 페이지로 이동
+            navigation('/login'); 
             return;
         }
 
@@ -113,12 +123,14 @@ const ProfileScreen = ({ navigate }) => {
             if (response.ok) {
                 const userData = await response.json();
                 setUser(userData);
-                setTempName(userData.name || '사용자 이름 없음'); // name 필드를 사용자 ID로 사용
+                // 임시 상태 초기화
+                setTempDisplayName(userData.name || '이름 정보 없음');
+                setTempEmail(userData.email || '이메일 정보 없음');
             } else if (response.status === 401) {
                  // 토큰 만료 또는 유효하지 않음
                  localStorage.removeItem('access_token');
                  setMessageBox({ type: 'error', message: "인증 오류: 로그인 세션이 만료되었습니다. 다시 로그인해주세요." });
-                 navigate('/');
+                 navigation('/login'); // useNavigate를 사용하여 /login으로 이동
             } else {
                 setMessageBox({ type: 'error', message: `사용자 정보 로드 실패: ${response.status}` });
             }
@@ -128,44 +140,87 @@ const ProfileScreen = ({ navigate }) => {
         } finally {
             setIsLoading(false);
         }
-    }, [navigate]);
+    }, [navigation]);
 
     useEffect(() => {
         fetchUserProfile();
     }, [fetchUserProfile]);
 
+    // 프로필 업데이트 처리 (이름 또는 이메일)
+    const handleUpdateProfile = async (field, value) => {
+        if (!user) return;
 
-    // 사용자 ID (name) 수정 저장 (Mock)
-    // 🚨 주의: 백엔드 수정 API가 없으므로 이 함수는 Mock 데이터로 시뮬레이션합니다.
-    const handleUpdateProfile = useCallback(async () => {
-        if (!tempName.trim() || tempName === user.name) {
-            setIsEditing(false);
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            navigation('/login');
             return;
         }
-        
-        setIsSaving(true);
 
-        try {
-            // 🚨 여기에 실제 PUT/PATCH API 호출 로직이 들어갑니다.
-            // 예시: const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, { ... });
-            
-            // Mock 성공 시뮬레이션
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            setUser(prev => ({ ...prev, name: tempName }));
-            setMessageBox({ type: 'success', message: "사용자 ID(이름)가 성공적으로 업데이트되었습니다." });
-            setIsEditing(false);
+        setIsLoading(true);
 
-        } catch (error) {
-            setMessageBox({ type: 'error', message: "프로필 업데이트에 실패했습니다. (Mock 오류)" });
-        } finally {
-            setIsSaving(false);
+        // 유효성 검사 (이메일인 경우 간단한 형식 검사)
+        if (field === 'email' && !/^\S+@\S+\.\S+$/.test(value)) {
+            setMessageBox({ type: 'error', message: "유효한 이메일 형식이 아닙니다." });
+            setIsLoading(false);
+            return;
         }
 
-    }, [tempName, user]);
+        try {
+            const payload = field === 'name' ? { name: value } : { email: value };
+
+            // Mock PUT 요청 (실제 백엔드 API가 /users/me 라고 가정)
+            const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (response.ok) {
+                // 백엔드에서 업데이트된 사용자 객체를 반환한다고 가정
+                const updatedUser = { ...user, ...payload };
+                setUser(updatedUser);
+                setTempDisplayName(updatedUser.name);
+                setTempEmail(updatedUser.email);
+                setMessageBox({ type: 'success', message: `프로필 정보 (${field === 'name' ? '이름' : '이메일'})가 성공적으로 업데이트되었습니다. (Mock)` });
+                
+                // 편집 모드 닫기
+                if (field === 'name') setIsEditingName(false);
+                if (field === 'email') setIsEditingEmail(false);
+                
+            } else {
+                setMessageBox({ type: 'error', message: `프로필 업데이트 실패: ${response.status} ${response.statusText}` });
+            }
+        } catch (error) {
+            console.error("Update Error:", error);
+            setMessageBox({ type: 'error', message: "네트워크 오류로 프로필 업데이트에 실패했습니다." });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // 편집 모드 시작
+    const handleStartEdit = (field) => {
+        if (field === 'name') setIsEditingName(true);
+        if (field === 'email') setIsEditingEmail(true);
+    };
+
+    // 편집 모드 취소 및 원래 값으로 되돌리기
+    const handleCancelEdit = (field) => {
+        if (field === 'name') {
+            setTempDisplayName(user.name);
+            setIsEditingName(false);
+        }
+        if (field === 'email') {
+            setTempEmail(user.email);
+            setIsEditingEmail(false);
+        }
+    };
 
 
-    // 프로필 이미지 변경 핸들러 (Mock)
+    // 프로필 이미지 변경 핸들러 (Mock - 수정 기능 제거로 인해 Mock 업로드만 유지)
     const handleImageChange = (event) => {
         const file = event.target.files[0];
         if (file) {
@@ -195,7 +250,7 @@ const ProfileScreen = ({ navigate }) => {
         return <div className="profile-container">
             <div className="card">
                 <p>사용자 정보를 불러올 수 없습니다. 로그인이 필요합니다.</p>
-                <button className="btn-primary" onClick={() => navigate('/')}>로그인 페이지로</button>
+                <button className="btn-primary full-width" onClick={() => navigation('/login')}>로그인 페이지로</button>
             </div>
         </div>
     }
@@ -210,9 +265,9 @@ const ProfileScreen = ({ navigate }) => {
                 onChange={handleImageChange}
             />
             <div className="card">
-                <h2 className="card-title">내 프로필 설정</h2>
+                <h2 className="card-title">내 프로필 정보</h2>
 
-                {/* 프로필 이미지 섹션 */}
+                {/* 프로필 이미지 섹션 (업로드 Mock) */}
                 <div className="profile-image-wrap">
                     <div 
                         className="profile-image" 
@@ -223,60 +278,96 @@ const ProfileScreen = ({ navigate }) => {
                             <span style={{ fontSize: '1.5rem', color: '#fff' }}>+</span>
                         </div>
                     </div>
-                    <p className="image-hint">클릭하여 이미지 변경</p>
+                    <p className="image-hint">클릭하여 이미지 변경 (Mock)</p>
                 </div>
 
-                {/* 사용자 ID (Name) 섹션 */}
+                {/* 사용자 ID (Name) 섹션 - 편집 가능 */}
                 <div className="input-group">
                     <label className="input-label">사용자 ID (이름)</label>
                     <div className="input-with-button">
                         <input
                             type="text"
-                            className="text-input"
-                            value={tempName}
-                            onChange={(e) => setTempName(e.target.value)}
-                            disabled={!isEditing || isSaving}
+                            className={`text-input ${!isEditingName ? 'readonly' : ''}`}
+                            value={tempDisplayName}
+                            onChange={(e) => setTempDisplayName(e.target.value)}
+                            readOnly={!isEditingName}
+                            disabled={isLoading}
                         />
-                        <button
-                            className="btn-edit"
-                            onClick={() => {
-                                if (isEditing) {
-                                    handleUpdateProfile();
-                                } else {
-                                    setIsEditing(true);
-                                }
-                            }}
-                            disabled={isSaving}
-                        >
-                            {isSaving ? '저장 중' : (isEditing ? '저장' : '수정')}
-                        </button>
-                        {isEditing && (
+                        {!isEditingName ? (
                             <button
-                                className="btn-cancel"
-                                onClick={() => {
-                                    setIsEditing(false);
-                                    setTempName(user.name); // 취소 시 원래 이름으로 복원
-                                }}
-                                disabled={isSaving}
+                                className="btn-edit btn-small"
+                                onClick={() => handleStartEdit('name')}
+                                disabled={isLoading}
                             >
-                                취소
+                                수정
                             </button>
+                        ) : (
+                            <>
+                                <button
+                                    className="btn-edit btn-small"
+                                    onClick={() => handleUpdateProfile('name', tempDisplayName)}
+                                    // 값이 변경되었고, 공백이 아닐 때만 활성화
+                                    disabled={isLoading || tempDisplayName.trim() === user.name || tempDisplayName.trim() === ''}
+                                >
+                                    저장
+                                </button>
+                                <button
+                                    className="btn-cancel btn-small"
+                                    onClick={() => handleCancelEdit('name')}
+                                    disabled={isLoading}
+                                >
+                                    취소
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
 
-                {/* 이메일 (변경 불가) 섹션 */}
+                {/* 이메일 섹션 - 편집 가능 (실제 앱에서는 인증 필요) */}
                 <div className="input-group">
-                    <label className="input-label">이메일 (ID)</label>
-                    <input
-                        type="email"
-                        className="text-input readonly"
-                        value={user.email}
-                        readOnly
-                    />
+                    <label className="input-label">이메일</label>
+                    <div className="input-with-button">
+                        <input
+                            type="email"
+                            className={`text-input ${!isEditingEmail ? 'readonly' : ''}`}
+                            value={tempEmail}
+                            onChange={(e) => setTempEmail(e.target.value)}
+                            readOnly={!isEditingEmail}
+                            disabled={isLoading}
+                        />
+                         {!isEditingEmail ? (
+                            <button
+                                className="btn-edit btn-small"
+                                onClick={() => handleStartEdit('email')}
+                                disabled={isLoading}
+                            >
+                                수정
+                            </button>
+                        ) : (
+                            <>
+                                <button
+                                    className="btn-edit btn-small"
+                                    onClick={() => handleUpdateProfile('email', tempEmail)}
+                                    // 값이 변경되었고, 기본 유효성 검사를 통과할 때만 활성화
+                                    disabled={isLoading || tempEmail.trim() === user.email || !/^\S+@\S+\.\S+$/.test(tempEmail)}
+                                >
+                                    저장
+                                </button>
+                                <button
+                                    className="btn-cancel btn-small"
+                                    onClick={() => handleCancelEdit('email')}
+                                    disabled={isLoading}
+                                >
+                                    취소
+                                </button>
+                            </>
+                        )}
+                    </div>
                 </div>
                 
-                {/* 기타 버튼 (로그아웃 제거) */}
+
+
+                {/* 기타 버튼 */}
                 <div className="button-footer">
                     <button 
                         className="btn-secondary full-width" 
@@ -284,8 +375,20 @@ const ProfileScreen = ({ navigate }) => {
                             type: 'info', 
                             message: "비밀번호 변경 기능을 여기에 추가할 수 있습니다." 
                         })}
+                        disabled={isLoading}
                     >
-                        비밀번호 변경
+                        비밀번호 변경 (Mock)
+                    </button>
+                </div>
+                
+                {/* 돌아가기 버튼 */}
+                <div className="button-footer">
+                    <button 
+                        className="btn-secondary full-width" 
+                        onClick={() => navigation('/about')} // 요청하신 /about 경로로 이동
+                        disabled={isLoading}
+                    >
+                        돌아가기
                     </button>
                 </div>
 
@@ -297,48 +400,9 @@ const ProfileScreen = ({ navigate }) => {
 
 
 // ------------------------------------
-// App 컴포넌트 (라우팅 시뮬레이션)
+// App 컴포넌트
 // ------------------------------------
-const InfoPage = () => {
-    // ⭐️ 라우팅을 위한 상태: 현재 보여줄 화면을 관리합니다.
-    const [currentPage, setCurrentPage] = useState('profile'); 
-    
-    // useNavigate를 대체하는 함수
-    const navigate = useCallback((path) => {
-        // '/profile'이 아니면 모두 로그인 페이지로 간다고 가정
-        if (path.startsWith('/')) {
-            setCurrentPage('login');
-        } else {
-            setCurrentPage('profile');
-        }
-    }, []);
-
-    // 🚨 여기는 실제 로그인 컴포넌트가 아니므로 간단한 더미 화면만 제공합니다.
-    const DummyLoginScreen = () => (
-        <div className="profile-container" style={{height: '100vh', justifyContent: 'center'}}>
-            <div className="card" style={{textAlign: 'center', maxWidth: '300px'}}>
-                <h2 className="card-title" style={{color: '#EF4444'}}>로그인 필요</h2>
-                <p>세션이 만료되었거나 로그아웃되었습니다.</p>
-                <button className="btn-primary" onClick={() => {
-                    // 임시 토큰 설정 (테스트용)
-                    localStorage.setItem('access_token', 'mock_jwt_token_for_testing');
-                    navigate('/profile');
-                }} style={{marginTop: '1rem', backgroundColor: '#4C51BF'}}>
-                    임시 로그인 및 프로필 재진입
-                </button>
-            </div>
-        </div>
-    );
-
-    const renderContent = () => {
-        if (currentPage === 'login') {
-            return <DummyLoginScreen />;
-        }
-        // 기본값: 프로필 화면
-        return <ProfileScreen navigate={navigate} />;
-    };
-
-    // --- 순수 CSS 스타일 ---
+const App = () => {
     return (
         <>
             <style>
@@ -454,7 +518,7 @@ const InfoPage = () => {
                         border: 1px solid #cbd5e0;
                         border-radius: 8px;
                         font-size: 1rem;
-                        transition: border-color 0.2s, box-shadow 0.2s;
+                        transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
                     }
                     .text-input:focus {
                         outline: none;
@@ -463,13 +527,18 @@ const InfoPage = () => {
                     }
                     .text-input.readonly {
                         background-color: #edf2f7;
-                        cursor: not-allowed;
+                        cursor: default;
                         color: #718096;
+                    }
+                    .text-input[disabled] {
+                        opacity: 0.8;
+                        cursor: not-allowed;
                     }
 
                     /* 인풋 + 버튼 그룹 */
                     .input-with-button {
                         display: flex;
+                        align-items: stretch;
                         gap: 8px;
                     }
                     .input-with-button .text-input {
@@ -490,6 +559,14 @@ const InfoPage = () => {
                         cursor: not-allowed;
                     }
 
+                    /* 작은 버튼 스타일 (수정/저장/취소) */
+                    .btn-small {
+                        padding: 0 12px; 
+                        font-size: 0.85rem;
+                        white-space: nowrap;
+                    }
+
+
                     .btn-edit {
                         background-color: #4C51BF;
                         color: white;
@@ -503,28 +580,28 @@ const InfoPage = () => {
                         color: white;
                     }
                     .btn-cancel:hover:not(:disabled) {
-                        background-color: #CBD5E0;
+                        background-color: #718096;
                     }
 
                     .button-footer {
                         display: flex;
-                        /* justify-content: space-between; (삭제됨) */
                         gap: 10px;
                         padding-top: 10px;
                         border-top: 1px dashed #e2e8f0;
                     }
 
                     .btn-secondary {
-                        flex-grow: 1; /* 이 버튼이 전체 너비를 차지하도록 설정 */
+                        flex-grow: 1; 
                         background-color: #E2E8F0;
                         color: #4A5568;
                     }
                     .btn-secondary:hover:not(:disabled) {
                         background-color: #CBD5E0;
                     }
+                    .full-width {
+                        width: 100%;
+                    }
 
-                    /* .btn-logout 스타일은 삭제됨 */
-                    
                     /* 로딩 스피너 */
                     .spinner-large {
                         border: 6px solid rgba(0, 0, 0, 0.1);
@@ -550,9 +627,9 @@ const InfoPage = () => {
                 `}
             </style>
             
-            {renderContent()}
+            <ProfileScreen />
         </>
     );
 }
 
-export default InfoPage;
+export default App;

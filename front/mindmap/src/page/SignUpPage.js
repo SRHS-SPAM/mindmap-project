@@ -78,7 +78,7 @@ const messageBoxStyles = {
 };
 
 
-const App = () => {
+const SignupPage = () => {
     const navigation = useNavigate();
 
     // useNavigate를 대체하는 더미 함수 (단일 파일 환경)
@@ -274,4 +274,4 @@ const App = () => {
     );
 }
 
-export default App;
+export default SignupPage;
