@@ -10,7 +10,7 @@ const MessageBox = ({ message, type, onClose }) => (
     <div style={messageBoxStyles.overlay}>
         <div style={{
             ...messageBoxStyles.box,
-            borderColor: type === 'error' ? '#EF4444' : (type === 'success' ? '#10B981' : '#F59E0B'),
+            borderColor: type === 'error' ? '#EF4444' : (type === 'success' ? '#10B981' : (type === 'info' ? '#F59E0B' : '#60A5FA')),
             boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
         }}>
             <h3 style={messageBoxStyles.title}>
@@ -21,7 +21,7 @@ const MessageBox = ({ message, type, onClose }) => (
                 onClick={onClose}
                 style={{
                     ...messageBoxStyles.button,
-                    backgroundColor: type === 'error' ? '#DC2626' : (type === 'success' ? '#059669' : '#D97706'),
+                    backgroundColor: type === 'error' ? '#DC2626' : (type === 'success' ? '#059669' : (type === 'info' ? '#D97706' : '#2563EB')),
                 }}
             >
                 확인
@@ -86,7 +86,12 @@ const ProfileScreen = () => {
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     
-    const [displayName, setDisplayName] = useState(''); 
+    // 편집 가능한 상태
+    const [tempDisplayName, setTempDisplayName] = useState(''); 
+    const [tempEmail, setTempEmail] = useState(''); 
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [isEditingEmail, setIsEditingEmail] = useState(false);
+
     const [profileImage, setProfileImage] = useState('https://placehold.co/120x120/A5B4FC/ffffff?text=Profile');
     const [messageBox, setMessageBox] = useState(null);
 
@@ -118,7 +123,9 @@ const ProfileScreen = () => {
             if (response.ok) {
                 const userData = await response.json();
                 setUser(userData);
-                setDisplayName(userData.name || '이름 정보 없음'); // name 필드를 사용자 ID로 사용
+                // 임시 상태 초기화
+                setTempDisplayName(userData.name || '이름 정보 없음');
+                setTempEmail(userData.email || '이메일 정보 없음');
             } else if (response.status === 401) {
                  // 토큰 만료 또는 유효하지 않음
                  localStorage.removeItem('access_token');
@@ -138,6 +145,79 @@ const ProfileScreen = () => {
     useEffect(() => {
         fetchUserProfile();
     }, [fetchUserProfile]);
+
+    // 프로필 업데이트 처리 (이름 또는 이메일)
+    const handleUpdateProfile = async (field, value) => {
+        if (!user) return;
+
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            navigation('/login');
+            return;
+        }
+
+        setIsLoading(true);
+
+        // 유효성 검사 (이메일인 경우 간단한 형식 검사)
+        if (field === 'email' && !/^\S+@\S+\.\S+$/.test(value)) {
+            setMessageBox({ type: 'error', message: "유효한 이메일 형식이 아닙니다." });
+            setIsLoading(false);
+            return;
+        }
+
+        try {
+            const payload = field === 'name' ? { name: value } : { email: value };
+
+            // Mock PUT 요청 (실제 백엔드 API가 /users/me 라고 가정)
+            const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (response.ok) {
+                // 백엔드에서 업데이트된 사용자 객체를 반환한다고 가정
+                const updatedUser = { ...user, ...payload };
+                setUser(updatedUser);
+                setTempDisplayName(updatedUser.name);
+                setTempEmail(updatedUser.email);
+                setMessageBox({ type: 'success', message: `프로필 정보 (${field === 'name' ? '이름' : '이메일'})가 성공적으로 업데이트되었습니다. (Mock)` });
+                
+                // 편집 모드 닫기
+                if (field === 'name') setIsEditingName(false);
+                if (field === 'email') setIsEditingEmail(false);
+                
+            } else {
+                setMessageBox({ type: 'error', message: `프로필 업데이트 실패: ${response.status} ${response.statusText}` });
+            }
+        } catch (error) {
+            console.error("Update Error:", error);
+            setMessageBox({ type: 'error', message: "네트워크 오류로 프로필 업데이트에 실패했습니다." });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // 편집 모드 시작
+    const handleStartEdit = (field) => {
+        if (field === 'name') setIsEditingName(true);
+        if (field === 'email') setIsEditingEmail(true);
+    };
+
+    // 편집 모드 취소 및 원래 값으로 되돌리기
+    const handleCancelEdit = (field) => {
+        if (field === 'name') {
+            setTempDisplayName(user.name);
+            setIsEditingName(false);
+        }
+        if (field === 'email') {
+            setTempEmail(user.email);
+            setIsEditingEmail(false);
+        }
+    };
 
 
     // 프로필 이미지 변경 핸들러 (Mock - 수정 기능 제거로 인해 Mock 업로드만 유지)
@@ -170,7 +250,7 @@ const ProfileScreen = () => {
         return <div className="profile-container">
             <div className="card">
                 <p>사용자 정보를 불러올 수 없습니다. 로그인이 필요합니다.</p>
-                <button className="btn-primary" onClick={() => navigation('/login')}>로그인 페이지로</button>
+                <button className="btn-primary full-width" onClick={() => navigation('/login')}>로그인 페이지로</button>
             </div>
         </div>
     }
@@ -201,40 +281,90 @@ const ProfileScreen = () => {
                     <p className="image-hint">클릭하여 이미지 변경 (Mock)</p>
                 </div>
 
-                {/* 사용자 ID (Name) 섹션 - 읽기 전용 */}
+                {/* 사용자 ID (Name) 섹션 - 편집 가능 */}
                 <div className="input-group">
                     <label className="input-label">사용자 ID (이름)</label>
                     <div className="input-with-button">
                         <input
                             type="text"
-                            className="text-input readonly"
-                            value={displayName}
-                            readOnly
+                            className={`text-input ${!isEditingName ? 'readonly' : ''}`}
+                            value={tempDisplayName}
+                            onChange={(e) => setTempDisplayName(e.target.value)}
+                            readOnly={!isEditingName}
+                            disabled={isLoading}
                         />
+                        {!isEditingName ? (
+                            <button
+                                className="btn-edit btn-small"
+                                onClick={() => handleStartEdit('name')}
+                                disabled={isLoading}
+                            >
+                                수정
+                            </button>
+                        ) : (
+                            <>
+                                <button
+                                    className="btn-edit btn-small"
+                                    onClick={() => handleUpdateProfile('name', tempDisplayName)}
+                                    // 값이 변경되었고, 공백이 아닐 때만 활성화
+                                    disabled={isLoading || tempDisplayName.trim() === user.name || tempDisplayName.trim() === ''}
+                                >
+                                    저장
+                                </button>
+                                <button
+                                    className="btn-cancel btn-small"
+                                    onClick={() => handleCancelEdit('name')}
+                                    disabled={isLoading}
+                                >
+                                    취소
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
 
-                {/* 이메일 (변경 불가) 섹션 */}
+                {/* 이메일 섹션 - 편집 가능 (실제 앱에서는 인증 필요) */}
                 <div className="input-group">
                     <label className="input-label">이메일</label>
-                    <input
-                        type="email"
-                        className="text-input readonly"
-                        value={user.email}
-                        readOnly
-                    />
+                    <div className="input-with-button">
+                        <input
+                            type="email"
+                            className={`text-input ${!isEditingEmail ? 'readonly' : ''}`}
+                            value={tempEmail}
+                            onChange={(e) => setTempEmail(e.target.value)}
+                            readOnly={!isEditingEmail}
+                            disabled={isLoading}
+                        />
+                         {!isEditingEmail ? (
+                            <button
+                                className="btn-edit btn-small"
+                                onClick={() => handleStartEdit('email')}
+                                disabled={isLoading}
+                            >
+                                수정
+                            </button>
+                        ) : (
+                            <>
+                                <button
+                                    className="btn-edit btn-small"
+                                    onClick={() => handleUpdateProfile('email', tempEmail)}
+                                    // 값이 변경되었고, 기본 유효성 검사를 통과할 때만 활성화
+                                    disabled={isLoading || tempEmail.trim() === user.email || !/^\S+@\S+\.\S+$/.test(tempEmail)}
+                                >
+                                    저장
+                                </button>
+                                <button
+                                    className="btn-cancel btn-small"
+                                    onClick={() => handleCancelEdit('email')}
+                                    disabled={isLoading}
+                                >
+                                    취소
+                                </button>
+                            </>
+                        )}
+                    </div>
                 </div>
                 
-                {/* 추가 정보 표시 */}
-                <div className="input-group">
-                    <label className="input-label">사용자 고유 ID</label>
-                    <input
-                        type="text"
-                        className="text-input readonly"
-                        value={user.id}
-                        readOnly
-                    />
-                </div>
 
                 {/* 기타 버튼 */}
                 <div className="button-footer">
@@ -244,17 +374,20 @@ const ProfileScreen = () => {
                             type: 'info', 
                             message: "비밀번호 변경 기능을 여기에 추가할 수 있습니다." 
                         })}
+                        disabled={isLoading}
                     >
                         비밀번호 변경 (Mock)
                     </button>
                 </div>
-
+                
+                {/* 돌아가기 버튼 */}
                 <div className="button-footer">
                     <button 
                         className="btn-secondary full-width" 
-                        onClick={() => navigation('/about')}
+                        onClick={() => navigation('/about')} // 요청하신 /about 경로로 이동
+                        disabled={isLoading}
                     >
-                        돌아가기 (Mock)
+                        돌아가기
                     </button>
                 </div>
 
@@ -266,12 +399,9 @@ const ProfileScreen = () => {
 
 
 // ------------------------------------
-// App 컴포넌트 (useNavigate 적용을 위해 라우팅 시뮬레이션 제거)
+// App 컴포넌트
 // ------------------------------------
 const App = () => {
-    // 이제 ProfileScreen 내부에서 useNavigate를 사용합니다. 
-    // 외부 환경에서 <Router> Context가 제공된다고 가정합니다.
-
     return (
         <>
             <style>
@@ -387,7 +517,7 @@ const App = () => {
                         border: 1px solid #cbd5e0;
                         border-radius: 8px;
                         font-size: 1rem;
-                        transition: border-color 0.2s, box-shadow 0.2s;
+                        transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
                     }
                     .text-input:focus {
                         outline: none;
@@ -396,13 +526,18 @@ const App = () => {
                     }
                     .text-input.readonly {
                         background-color: #edf2f7;
-                        cursor: not-allowed;
+                        cursor: default;
                         color: #718096;
+                    }
+                    .text-input[disabled] {
+                        opacity: 0.8;
+                        cursor: not-allowed;
                     }
 
                     /* 인풋 + 버튼 그룹 */
                     .input-with-button {
                         display: flex;
+                        align-items: stretch;
                         gap: 8px;
                     }
                     .input-with-button .text-input {
@@ -423,6 +558,14 @@ const App = () => {
                         cursor: not-allowed;
                     }
 
+                    /* 작은 버튼 스타일 (수정/저장/취소) */
+                    .btn-small {
+                        padding: 0 12px; 
+                        font-size: 0.85rem;
+                        white-space: nowrap;
+                    }
+
+
                     .btn-edit {
                         background-color: #4C51BF;
                         color: white;
@@ -436,7 +579,7 @@ const App = () => {
                         color: white;
                     }
                     .btn-cancel:hover:not(:disabled) {
-                        background-color: #CBD5E0;
+                        background-color: #718096;
                     }
 
                     .button-footer {
@@ -453,6 +596,9 @@ const App = () => {
                     }
                     .btn-secondary:hover:not(:disabled) {
                         background-color: #CBD5E0;
+                    }
+                    .full-width {
+                        width: 100%;
                     }
 
                     /* 로딩 스피너 */
