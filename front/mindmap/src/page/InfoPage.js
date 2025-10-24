@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+// 🚨 useNavigate hook을 사용합니다.
+import { useNavigate } from 'react-router-dom';
 
 // TODO: 실제 FastAPI 백엔드 주소로 변경하세요.
 const API_BASE_URL = 'http://localhost:8000'; 
@@ -77,14 +79,16 @@ const messageBoxStyles = {
 // ------------------------------------
 // 메인 프로필 화면 컴포넌트
 // ------------------------------------
-const ProfileScreen = ({ navigate }) => {
+const ProfileScreen = () => {
+    // useNavigate 훅을 사용하여 라우팅 함수를 가져옵니다.
+    const navigation = useNavigate();
+    
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isEditing, setIsEditing] = useState(false);
-    const [tempName, setTempName] = useState('');
+    
+    const [displayName, setDisplayName] = useState(''); 
     const [profileImage, setProfileImage] = useState('https://placehold.co/120x120/A5B4FC/ffffff?text=Profile');
     const [messageBox, setMessageBox] = useState(null);
-    const [isSaving, setIsSaving] = useState(false);
 
     const fileInputRef = useRef(null);
     
@@ -97,7 +101,8 @@ const ProfileScreen = ({ navigate }) => {
     const fetchUserProfile = useCallback(async () => {
         const token = localStorage.getItem('access_token');
         if (!token) {
-            navigate('/');
+            // 토큰이 없으면 로그인 페이지로 이동
+            navigation('/login'); 
             return;
         }
 
@@ -113,12 +118,12 @@ const ProfileScreen = ({ navigate }) => {
             if (response.ok) {
                 const userData = await response.json();
                 setUser(userData);
-                setTempName(userData.name || '사용자 이름 없음'); // name 필드를 사용자 ID로 사용
+                setDisplayName(userData.name || '이름 정보 없음'); // name 필드를 사용자 ID로 사용
             } else if (response.status === 401) {
                  // 토큰 만료 또는 유효하지 않음
                  localStorage.removeItem('access_token');
                  setMessageBox({ type: 'error', message: "인증 오류: 로그인 세션이 만료되었습니다. 다시 로그인해주세요." });
-                 navigate('/');
+                 navigation('/login'); // useNavigate를 사용하여 /login으로 이동
             } else {
                 setMessageBox({ type: 'error', message: `사용자 정보 로드 실패: ${response.status}` });
             }
@@ -128,44 +133,14 @@ const ProfileScreen = ({ navigate }) => {
         } finally {
             setIsLoading(false);
         }
-    }, [navigate]);
+    }, [navigation]);
 
     useEffect(() => {
         fetchUserProfile();
     }, [fetchUserProfile]);
 
 
-    // 사용자 ID (name) 수정 저장 (Mock)
-    // 🚨 주의: 백엔드 수정 API가 없으므로 이 함수는 Mock 데이터로 시뮬레이션합니다.
-    const handleUpdateProfile = useCallback(async () => {
-        if (!tempName.trim() || tempName === user.name) {
-            setIsEditing(false);
-            return;
-        }
-        
-        setIsSaving(true);
-
-        try {
-            // 🚨 여기에 실제 PUT/PATCH API 호출 로직이 들어갑니다.
-            // 예시: const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, { ... });
-            
-            // Mock 성공 시뮬레이션
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            setUser(prev => ({ ...prev, name: tempName }));
-            setMessageBox({ type: 'success', message: "사용자 ID(이름)가 성공적으로 업데이트되었습니다." });
-            setIsEditing(false);
-
-        } catch (error) {
-            setMessageBox({ type: 'error', message: "프로필 업데이트에 실패했습니다. (Mock 오류)" });
-        } finally {
-            setIsSaving(false);
-        }
-
-    }, [tempName, user]);
-
-
-    // 프로필 이미지 변경 핸들러 (Mock)
+    // 프로필 이미지 변경 핸들러 (Mock - 수정 기능 제거로 인해 Mock 업로드만 유지)
     const handleImageChange = (event) => {
         const file = event.target.files[0];
         if (file) {
@@ -195,7 +170,7 @@ const ProfileScreen = ({ navigate }) => {
         return <div className="profile-container">
             <div className="card">
                 <p>사용자 정보를 불러올 수 없습니다. 로그인이 필요합니다.</p>
-                <button className="btn-primary" onClick={() => navigate('/')}>로그인 페이지로</button>
+                <button className="btn-primary" onClick={() => navigation('/login')}>로그인 페이지로</button>
             </div>
         </div>
     }
@@ -210,9 +185,9 @@ const ProfileScreen = ({ navigate }) => {
                 onChange={handleImageChange}
             />
             <div className="card">
-                <h2 className="card-title">내 프로필 설정</h2>
+                <h2 className="card-title">내 프로필 정보</h2>
 
-                {/* 프로필 이미지 섹션 */}
+                {/* 프로필 이미지 섹션 (업로드 Mock) */}
                 <div className="profile-image-wrap">
                     <div 
                         className="profile-image" 
@@ -223,51 +198,25 @@ const ProfileScreen = ({ navigate }) => {
                             <span style={{ fontSize: '1.5rem', color: '#fff' }}>+</span>
                         </div>
                     </div>
-                    <p className="image-hint">클릭하여 이미지 변경</p>
+                    <p className="image-hint">클릭하여 이미지 변경 (Mock)</p>
                 </div>
 
-                {/* 사용자 ID (Name) 섹션 */}
+                {/* 사용자 ID (Name) 섹션 - 읽기 전용 */}
                 <div className="input-group">
                     <label className="input-label">사용자 ID (이름)</label>
                     <div className="input-with-button">
                         <input
                             type="text"
-                            className="text-input"
-                            value={tempName}
-                            onChange={(e) => setTempName(e.target.value)}
-                            disabled={!isEditing || isSaving}
+                            className="text-input readonly"
+                            value={displayName}
+                            readOnly
                         />
-                        <button
-                            className="btn-edit"
-                            onClick={() => {
-                                if (isEditing) {
-                                    handleUpdateProfile();
-                                } else {
-                                    setIsEditing(true);
-                                }
-                            }}
-                            disabled={isSaving}
-                        >
-                            {isSaving ? '저장 중' : (isEditing ? '저장' : '수정')}
-                        </button>
-                        {isEditing && (
-                            <button
-                                className="btn-cancel"
-                                onClick={() => {
-                                    setIsEditing(false);
-                                    setTempName(user.name); // 취소 시 원래 이름으로 복원
-                                }}
-                                disabled={isSaving}
-                            >
-                                취소
-                            </button>
-                        )}
                     </div>
                 </div>
 
                 {/* 이메일 (변경 불가) 섹션 */}
                 <div className="input-group">
-                    <label className="input-label">이메일 (ID)</label>
+                    <label className="input-label">이메일</label>
                     <input
                         type="email"
                         className="text-input readonly"
@@ -276,7 +225,18 @@ const ProfileScreen = ({ navigate }) => {
                     />
                 </div>
                 
-                {/* 기타 버튼 (로그아웃 제거) */}
+                {/* 추가 정보 표시 */}
+                <div className="input-group">
+                    <label className="input-label">사용자 고유 ID</label>
+                    <input
+                        type="text"
+                        className="text-input readonly"
+                        value={user.id}
+                        readOnly
+                    />
+                </div>
+
+                {/* 기타 버튼 */}
                 <div className="button-footer">
                     <button 
                         className="btn-secondary full-width" 
@@ -285,7 +245,16 @@ const ProfileScreen = ({ navigate }) => {
                             message: "비밀번호 변경 기능을 여기에 추가할 수 있습니다." 
                         })}
                     >
-                        비밀번호 변경
+                        비밀번호 변경 (Mock)
+                    </button>
+                </div>
+
+                <div className="button-footer">
+                    <button 
+                        className="btn-secondary full-width" 
+                        onClick={() => navigation('/about')}
+                    >
+                        돌아가기 (Mock)
                     </button>
                 </div>
 
@@ -297,48 +266,12 @@ const ProfileScreen = ({ navigate }) => {
 
 
 // ------------------------------------
-// App 컴포넌트 (라우팅 시뮬레이션)
+// App 컴포넌트 (useNavigate 적용을 위해 라우팅 시뮬레이션 제거)
 // ------------------------------------
-const InfoPage = () => {
-    // ⭐️ 라우팅을 위한 상태: 현재 보여줄 화면을 관리합니다.
-    const [currentPage, setCurrentPage] = useState('profile'); 
-    
-    // useNavigate를 대체하는 함수
-    const navigate = useCallback((path) => {
-        // '/profile'이 아니면 모두 로그인 페이지로 간다고 가정
-        if (path.startsWith('/')) {
-            setCurrentPage('login');
-        } else {
-            setCurrentPage('profile');
-        }
-    }, []);
+const App = () => {
+    // 이제 ProfileScreen 내부에서 useNavigate를 사용합니다. 
+    // 외부 환경에서 <Router> Context가 제공된다고 가정합니다.
 
-    // 🚨 여기는 실제 로그인 컴포넌트가 아니므로 간단한 더미 화면만 제공합니다.
-    const DummyLoginScreen = () => (
-        <div className="profile-container" style={{height: '100vh', justifyContent: 'center'}}>
-            <div className="card" style={{textAlign: 'center', maxWidth: '300px'}}>
-                <h2 className="card-title" style={{color: '#EF4444'}}>로그인 필요</h2>
-                <p>세션이 만료되었거나 로그아웃되었습니다.</p>
-                <button className="btn-primary" onClick={() => {
-                    // 임시 토큰 설정 (테스트용)
-                    localStorage.setItem('access_token', 'mock_jwt_token_for_testing');
-                    navigate('/profile');
-                }} style={{marginTop: '1rem', backgroundColor: '#4C51BF'}}>
-                    임시 로그인 및 프로필 재진입
-                </button>
-            </div>
-        </div>
-    );
-
-    const renderContent = () => {
-        if (currentPage === 'login') {
-            return <DummyLoginScreen />;
-        }
-        // 기본값: 프로필 화면
-        return <ProfileScreen navigate={navigate} />;
-    };
-
-    // --- 순수 CSS 스타일 ---
     return (
         <>
             <style>
@@ -508,14 +441,13 @@ const InfoPage = () => {
 
                     .button-footer {
                         display: flex;
-                        /* justify-content: space-between; (삭제됨) */
                         gap: 10px;
                         padding-top: 10px;
                         border-top: 1px dashed #e2e8f0;
                     }
 
                     .btn-secondary {
-                        flex-grow: 1; /* 이 버튼이 전체 너비를 차지하도록 설정 */
+                        flex-grow: 1; 
                         background-color: #E2E8F0;
                         color: #4A5568;
                     }
@@ -523,8 +455,6 @@ const InfoPage = () => {
                         background-color: #CBD5E0;
                     }
 
-                    /* .btn-logout 스타일은 삭제됨 */
-                    
                     /* 로딩 스피너 */
                     .spinner-large {
                         border: 6px solid rgba(0, 0, 0, 0.1);
@@ -550,9 +480,9 @@ const InfoPage = () => {
                 `}
             </style>
             
-            {renderContent()}
+            <ProfileScreen />
         </>
     );
 }
 
-export default InfoPage;
+export default App;
