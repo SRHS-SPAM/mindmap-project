@@ -23,6 +23,7 @@ from ..schemas import (
     ORMMindMapNode # Pydantic response model alias 임포트 (schemas.py에서 정의됨)
 )
 from ..security import get_current_active_user
+# 💡 [가정] services.ai_analyzer 모듈 임포트
 from ..services.ai_analyzer import analyze_chat_and_generate_map, recommend_map_improvements
 from typing import List
 from sqlalchemy.orm import joinedload
@@ -39,7 +40,11 @@ def verify_project_member(db: Session, project_id: int, user_id: int):
             detail="User is not a member of this project."
         )
 
-router = APIRouter()
+# 💡 [수정] 라우터에 prefix를 추가했습니다. (main.py에서 /api/v1을 포함한다고 가정)
+router = APIRouter(
+    prefix="/projects",
+    tags=["4. Project and MindMap"]
+)
 
 # --- 프로젝트 CRUD ---
 @router.post("/", response_model=ProjectSchema, status_code=status.HTTP_201_CREATED)
@@ -136,9 +141,10 @@ def delete_project(
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    db.query(ORMChatMessage).filter(ORMChatMessage.project_id == project_id).delete()
-    db.query(ORMDatabaseMindMapNode).filter(ORMDatabaseMindMapNode.project_id == project_id).delete()
-    db.query(ORMProjectMember).filter(ORMProjectMember.project_id == project_id).delete()
+    # 관련 데이터 삭제 (채팅, 노드, 멤버)
+    db.query(ORMChatMessage).filter(ORMChatMessage.project_id == project_id).delete(synchronize_session=False)
+    db.query(ORMDatabaseMindMapNode).filter(ORMDatabaseMindMapNode.project_id == project_id).delete(synchronize_session=False)
+    db.query(ORMProjectMember).filter(ORMProjectMember.project_id == project_id).delete(synchronize_session=False)
         
     db.delete(db_project)
     db.commit()
@@ -155,24 +161,20 @@ def post_chat_message(
 ):
     """프로젝트 채팅 메시지 전송"""
     
-    # 1. 사용자 ID 정의 (기존 코드에서 정의되지 않은 user_id를 current_user.id로 수정)
-    # 현재 인증이 비활성화되었더라도, get_current_active_user가 임시 사용자(user_id=1 또는 기타)를 반환한다고 가정합니다.
     user_id = current_user.id 
     
-    # 2. 프로젝트 존재 여부 확인 및 기본 프로젝트 자동 생성 (FK 문제 해결 핵심)
+    # 2. 프로젝트 존재 여부 확인 및 기본 프로젝트 자동 생성
     db_project = db.query(ORMProject).filter(ORMProject.id == project_id).first()
 
     if not db_project:
         # DB 무결성 오류 해결을 위해 프로젝트가 없으면 기본 프로젝트를 생성합니다.
         try:
-            # 기본 프로젝트 생성
             db_project = ORMProject(id=project_id, title=f"임시 프로젝트 {project_id}")
             db.add(db_project)
             db.commit()
             db.refresh(db_project)
             
-            # 프로젝트 멤버도 함께 생성 (ProjectMember FK 충족)
-            # user_id가 유효한 사용자 ID(예: 1)라고 가정
+            # 프로젝트 멤버도 함께 생성
             db_member = ORMProjectMember(project_id=project_id, user_id=user_id, is_admin=True)
             db.add(db_member)
             db.commit()
@@ -180,10 +182,9 @@ def post_chat_message(
             print(f"INFO: Created default project (ID: {project_id}) and member (User ID: {user_id}).")
         except Exception as e:
             db.rollback()
-            # user_id가 유효하지 않아 ProjectMember 생성에 실패할 수 있음
             raise HTTPException(
                 status_code=400, 
-                detail=f"Project {project_id} not found and failed to create default project. Check if current_user.id ({user_id}) is valid. Detail: {e}"
+                detail=f"Project {project_id} not found and failed to create default project. Detail: {e}"
             )
 
     # 3. 채팅 메시지 저장
@@ -198,7 +199,6 @@ def post_chat_message(
         db.commit()
     except Exception as e:
         db.rollback()
-        # 메시지 삽입 중 발생 가능한 다른 DB 오류 처리
         raise HTTPException(
             status_code=500, 
             detail=f"Database error during message commit: {e}"
@@ -214,8 +214,7 @@ def get_chat_history(
     db: Session = Depends(get_db)
 ):
     """프로젝트 채팅 기록 조회"""
-    # 프로젝트 멤버 검증 로직 생략 (get_project_details에서 이미 처리)
-    # 다만 채팅 기록은 빈 배열이 될 수 있으므로, 프로젝트 존재 여부만 확인합니다.
+    # 프로젝트 존재 여부 확인
     db_project = db.query(ORMProject).filter(ORMProject.id == project_id).first()
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -241,51 +240,65 @@ def generate_mindmap(
         raise HTTPException(status_code=409, detail="MindMap is already being generated.")
     
     # 💡 [AI 생성 중] 플래그 설정
-    # (잠재적 문제: 실제 LLM 호출은 시간이 오래 걸리므로, 이 엔드포인트가 타임아웃될 수 있습니다. 
-    #  이 경우 별도의 백그라운드 태스크나 Job Queue(Celery 등)를 사용하는 것이 좋습니다.)
     db_project.is_generating = True
     db.commit()
         
     chat_history = db.query(ORMChatMessage).filter(ORMChatMessage.project_id == project_id).order_by(ORMChatMessage.id).all()
     
-    # 💡 [수정] Mocking 대신 실제 AI 서비스 함수 호출
     try:
-        # last_chat_id_processed를 기존 프로젝트 정보에서 가져와야 함
         last_processed_id = db_project.last_chat_id_processed or 0
         
-        # 💡 [핵심 수정 부분] analyze_chat_and_generate_map 호출
-        analysis_result = analyze_chat_and_generate_map(
+        # 💡 analyze_chat_and_generate_map 호출
+        analysis_result: AIAnalysisResult = analyze_chat_and_generate_map(
             project_id=project_id,
             chat_history=chat_history,
             last_processed_chat_id=last_processed_id,
             db_session=db # DB 세션을 인자로 전달 (ORM 조회용)
         )
+        
+        # 분석이 성공했을 때만 노드 업데이트 및 플래그 해제
+        if analysis_result.is_success and analysis_result.mindmap_data and analysis_result.mindmap_data.nodes:
+            # 1. 기존 노드 삭제 (MindMapData 스키마 내에 노드들이 전부 포함되어 있다고 가정)
+            db.query(ORMDatabaseMindMapNode).filter(ORMDatabaseMindMapNode.project_id == project_id).delete(synchronize_session=False)
+            
+            # 2. 새로운 노드 ORM 객체 생성 및 추가
+            new_nodes = []
+            for node_data in analysis_result.mindmap_data.nodes:
+                db_node = ORMDatabaseMindMapNode(
+                    project_id=project_id,
+                    id=node_data.id,
+                    parent_id=node_data.parent_id,
+                    node_type=node_data.node_type,
+                    title=node_data.title,
+                    description=node_data.description,
+                    # connections 필드가 ORM 모델에 맞게 처리된다고 가정
+                    # 'connections'는 JSON 형태로 저장되어야 할 수 있습니다. 
+                    # 임시로 문자열/리스트 저장 방식이라고 가정하고 구현합니다.
+                    connections=node_data.connections # 스키마와 모델의 connections 타입 일치 필요
+                )
+                new_nodes.append(db_node)
+
+            db.add_all(new_nodes) 
+            
+            # 3. 프로젝트 상태 업데이트
+            db_project.last_chat_id_processed = analysis_result.last_chat_id
+            db_project.is_generating = False
+            db.commit()
+        else:
+            # 분석은 성공했지만 유효한 데이터가 없거나, is_success가 False인 경우
+            db_project.is_generating = False
+            db.commit()
+            raise HTTPException(status_code=400, detail="AI analysis result was empty or failed.")
+            
     except Exception as e:
-        # 오류 발생 시 플래그 해제
+        # 오류 발생 시 플래그 해제 및 롤백
+        db.rollback()
         db_project.is_generating = False
         db.commit()
         raise HTTPException(status_code=500, detail=f"AI analysis failed: {e}")
 
-    # ... (분석 결과 처리 및 DB 저장 로직은 기존과 동일) ...
-    # ... (분석 결과가 False일 때, is_generating 플래그를 해제하는 로직 필요) ...
-    
-    # 💡 is_success에 따른 플래그 해제
-    if analysis_result.is_success:
-        # 기존 노드 삭제 시 ORM 모델명 변경 적용
-        db.query(ORMDatabaseMindMapNode).filter(ORMDatabaseMindMapNode.project_id == project_id).delete()
-        
-        # ... (노드 DB 저장 로직 생략) ...
-        # ... (new_nodes db.add_all(new_nodes) 부분) ...
-        
-        db_project.last_chat_id_processed = analysis_result.last_chat_id
-        db_project.is_generating = False
-        db.commit()
-    else:
-        db_project.is_generating = False
-        db.commit()
-        raise HTTPException(status_code=500, detail="AI analysis failed to process the chat history.")
-        
     return analysis_result
+
 
 @router.get("/{project_id}/mindmap", response_model=List[ORMMindMapNode]) # Pydantic 모델을 response_model로 사용
 def get_mindmap_nodes(
@@ -312,7 +325,10 @@ def update_mindmap_node(
     verify_project_member(db, project_id, current_user.id)
         
     db_project = db.query(ORMProject).filter(ORMProject.id == project_id).first()
-    if not db_project or db_project.is_generating:
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    if db_project.is_generating:
         raise HTTPException(status_code=403, detail="Cannot modify node while map is generating.")
         
     # 데이터베이스 쿼리에는 ORM 클래스를 사용
@@ -324,9 +340,8 @@ def update_mindmap_node(
     if not db_node:
         raise HTTPException(status_code=404, detail="MindMap Node not found")
 
-    # 데이터베이스 쿼리에는 ORM 클래스를 사용
-    if not db.query(ORMDatabaseMindMapNode).filter(ORMDatabaseMindMapNode.project_id == project_id).first():
-        raise HTTPException(status_code=403, detail="Cannot modify a node if the MindMap has not been generated yet.")
+    # 💡 [수정] 불필요한 중복 노드 존재 여부 확인 제거
+    # db_node가 이미 Not Found 에러를 처리하므로, 추가적인 검증은 필요 없습니다.
 
     if node_update.description is not None:
         db_node.description = node_update.description
@@ -364,7 +379,7 @@ def get_ai_recommendation(
         for n in nodes
     ]}
 
-    # 💡 [핵심 수정 부분] recommend_map_improvements 호출
+    # 💡 recommend_map_improvements 호출
     recommendation_text = recommend_map_improvements(map_data, chat_history)
 
     return AIRecommendation(recommendation=recommendation_text)
