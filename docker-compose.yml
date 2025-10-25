@@ -1,41 +1,46 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: postgres_db
-    restart: always
+  postgres_db:
+    image: postgres:15.14-alpine
+    container_name: postgres_db-1
+    restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      # DB 접속에 필요한 환경 변수 설정
-      POSTGRES_USER: fastapi_user
-      POSTGRES_PASSWORD: fastapi_password
-      POSTGRES_DB: mindmap_db
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
-      # DB 데이터 영구 저장을 위한 볼륨 설정
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data/
     ports:
-      # 호스트 PC의 5433 포트를 컨테이너 내부의 5432 포트에 매핑 (포트 충돌 방지 목적)
-      - "5433:5432"
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  app:
-    # 빌드 경로를 'back/' 폴더로 지정합니다.
+  mindmap_api:
     build: ./back
     container_name: mindmap_api
-    # FastAPI 서버 시작 명령어: 'back' 폴더 내의 'main:app'을 참조하도록 수정
-    command: uvicorn back.main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      # 로컬 코드와 컨테이너 코드를 동기화 (실시간 개발 가능)
-      - .:/app
-    ports:
-      # 호스트 PC의 8000 포트를 컨테이너 내부의 8000 포트에 매핑
-      - "8000:8000"
+    restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      # FastAPI 앱이 DB에 접속할 때 사용할 URL
-      # NOTE: app 컨테이너 내부에서는 서비스 이름(db)과 내부 포트(5432)를 사용합니다.
-      DATABASE_URL: postgresql://fastapi_user:fastapi_password@db:5432/mindmap_db
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres_db:5432/${DB_NAME}
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      GCP_REGION: ${GCP_REGION}
+      GOOGLE_APPLICATION_CREDENTIALS: /app/gcp-key.json  # 주석 해제
+    volumes:
+      - ./back:/app/back  # 소스 코드만 마운트
+      - ./gcp-key.json:/app/gcp-key.json:ro  # GCP 인증 키
+    ports:
+      - "8000:8000"
+    command: uvicorn back.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
-      - db # db 컨테이너가 먼저 실행된 후 app 컨테이너 시작
-    
+      postgres_db:
+        condition: service_healthy
+
 volumes:
-  # DB 영구 저장을 위한 볼륨 정의
   postgres_data:

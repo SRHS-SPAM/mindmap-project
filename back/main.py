@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import os
+import vertexai
 
 # DB 설정 및 모델 임포트
 from .database import engine, Base
-from . import models 
 
 # 라우터 임포트
 from .routers import auth, project, user, memo
@@ -19,6 +20,25 @@ app = FastAPI(
 # DB 테이블 생성 (models.py에서 정의된 모든 테이블이 생성됩니다.)
 # 이 부분은 app 인스턴스 생성 직후에 있어야 DB가 준비됩니다.
 Base.metadata.create_all(bind=engine)
+
+# 💡 Vertex AI 초기화
+@app.on_event("startup")
+async def startup_event():
+    """애플리케이션 시작 시 Vertex AI 초기화"""
+    try:
+        project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+        location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+        
+        if not project_id:
+            print("경고: GOOGLE_CLOUD_PROJECT 환경 변수가 설정되지 않았습니다.")
+            print("Vertex AI 기능을 사용하려면 환경 변수를 설정하거나 'gcloud auth application-default login'을 실행하세요.")
+            return
+        
+        vertexai.init(project=project_id, location=location)
+        print(f"✅ Vertex AI 초기화 성공! (Project: {project_id}, Location: {location})")
+    except Exception as e:
+        print(f"❌ Vertex AI 초기화 오류: {e}")
+        print("'gcloud auth application-default login'을 실행하거나 환경 변수를 확인하세요.")
 
 # 💡 CORS 설정 적용
 origins = [

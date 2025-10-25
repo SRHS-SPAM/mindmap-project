@@ -9,3 +9,5 @@ python-dotenv
 requests
 passlib
 argon2-cffi
+google-cloud-aiplatform>=1.38.0
+google-auth
