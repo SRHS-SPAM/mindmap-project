@@ -68,7 +68,7 @@
     /* 기존 memo_wrap p의 스타일을 참고하여 재정의 */
     width: 300px; 
     height: 420px; /* 카드를 더 작게 변경하여 한 눈에 많이 보이도록 조정 */
-    margin: 15px;
+    margin: 20px 0;
     padding: 20px;
     background-color: #3b4249; /* 어두운 배경에 맞는 색상 */
     color: #E5E7EB;
@@ -80,7 +80,7 @@
 }
 
 .memo-list-item:hover {
-    transform: translateY(-5px) scale(1.02);
+    transform: scale(1.02);
     box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4);
 }
 
@@ -119,7 +119,8 @@
 }
 
 .memo-content-area {
-    min-height: 150px;
+    min-height: 300px;
+    color: aliceblue;
     white-space: pre-wrap;
     font-size: 1rem;
     line-height: 1.6;
@@ -191,15 +192,19 @@
 
 /* 버튼 컨테이너 */
 .memo-actions {
+    width: 98%;
     display: flex;
     justify-content: flex-end; /* 오른쪽 정렬 */
     gap: 10px;
-    margin-top: 20px;
+    border-bottom: 3px solid aliceblue;
+    /* margin-top: 20px; */
 }
 
 /* 기본 버튼 스타일 */
 .memo-button {
+    margin: 0;
     padding: 10px 20px;
+    margin-bottom: 10px;
     border: none;
     border-radius: 20px;
     font-weight: bold;

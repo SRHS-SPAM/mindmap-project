@@ -218,6 +218,7 @@ const MemoPage = () => {
                 <p className='mt-2'>로그인 페이지로 이동하여 유효한 토큰을 발급받으세요.</p>
             </div>
         );
+        
 
         return (
             <>
@@ -238,6 +239,16 @@ const MemoPage = () => {
                                 onClick={() => handleSelectMemo(memo)}
                             >
                                 <p className="memo-item-title">{memo.title || "(제목 없음)"}</p>
+                                <div className="memo-content-area">
+                                    {/* \n을 <br/>로 치환하여 줄바꿈 표시 */}
+                                    {/* 🚨 오류 수정: currentMemo.content 대신 반복 중인 memo.content를 사용합니다. */}
+                                    {memo.content && memo.content.split('\n').map((line, index) => (
+                                        <React.Fragment key={index}>
+                                            {line}
+                                            <br/>
+                                        </React.Fragment>
+                                    ))}
+                                </div>
                             </div>
                         ))
                     )}
@@ -332,7 +343,7 @@ const MemoPage = () => {
             <Header />
             <div className="info">
                 <div className='text_wrap_ho'>
-                    <h1 className='main_text_ho'>Memo ({viewMode === 'edit' ? '작성' : viewMode === 'detail' ? '상세' : '목록'})</h1>
+                    <h1 className='main_text_ho'>MEMO</h1>
                 </div>
                 <div className="resent_wrap">
                     <div className="memo_wrap">
