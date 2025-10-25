@@ -1,3 +1,6 @@
+/* -------------------------------------------------------------------------- */
+/* 1. 사용자 제공 기본 레이아웃 (건드리지 않음)             */
+/* -------------------------------------------------------------------------- */
 .wrap_ho {
     background-color: #272E33;
     width: calc(100% - 100px);
@@ -8,7 +11,7 @@
     
     display: flex;
 
- }
+}
 
 .main_text_ho {
     margin: 15px;
@@ -37,9 +40,12 @@
     display: flex;
     flex-wrap: wrap;
 
+    /* 모바일 환경에서 패딩 확보 */
+    padding-right: 20px;
 }
 
-.memo_wrap p{
+/* 기존 p 스타일: 메모 목록 아이템의 기본 크기 및 스타일을 제공합니다. */
+.memo_wrap>p{
     width: 300px;
     height: 420px;
 
@@ -49,6 +55,257 @@
     transition: transform 0.3s ease;
 }
 
-.memo_wrap p:hover {
+.memo_wrap>p:hover {
     transform: scale(1.05);
+}
+
+/* -------------------------------------------------------------------------- */
+/* 2. 메모 목록 아이템 및 상세 뷰 스타일                    */
+/* -------------------------------------------------------------------------- */
+
+/* 메모 목록 아이템 컨테이너 (클릭 가능한 카드) */
+.memo-list-item {
+    /* 기존 memo_wrap p의 스타일을 참고하여 재정의 */
+    width: 300px; 
+    height: 420px; /* 카드를 더 작게 변경하여 한 눈에 많이 보이도록 조정 */
+    margin: 15px;
+    padding: 20px;
+    background-color: #3b4249; /* 어두운 배경에 맞는 색상 */
+    color: #E5E7EB;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.memo-list-item:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4);
+}
+
+.memo-item-title {
+    font-size: 1.25rem; /* 20px */
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #4CAF50; /* 포인트 색상 */
+    /* p 태그에 적용된 width/height/margin 스타일을 오버라이드 */
+    width: auto; 
+    height: auto;
+    margin: 0 0 10px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 메모 상세 뷰 */
+.memo-detail {
+    width: 100%;
+    max-width: 900px;
+    padding: 20px;
+    background-color: #3b4249;
+    color: #E5E7EB;
+    border-radius: 12px;
+    margin: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.memo-title {
+    font-size: 2rem;
+    color: #4CAF50;
+    border-bottom: 2px solid #555;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.memo-content-area {
+    min-height: 150px;
+    white-space: pre-wrap;
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 30px;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* 3. 모달 (팝업 창) 스타일                          */
+/* -------------------------------------------------------------------------- */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-container {
+    background-color: #272E33; /* wrap_ho와 동일 */
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: fadeIn 0.3s ease-out;
+    color: #E5E7EB;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 4. 폼 및 버튼 스타일                            */
+/* -------------------------------------------------------------------------- */
+
+.memo-input,
+.memo-textarea {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #555;
+    border-radius: 8px;
+    background-color: #3b4249;
+    color: #E5E7EB;
+    font-size: 1rem;
+    box-sizing: border-box; /* 패딩이 전체 너비에 포함되도록 */
+}
+
+.memo-textarea {
+    resize: vertical;
+}
+
+/* 버튼 컨테이너 */
+.memo-actions {
+    display: flex;
+    justify-content: flex-end; /* 오른쪽 정렬 */
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* 기본 버튼 스타일 */
+.memo-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.memo-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.memo-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 주요 액션 버튼 (저장, 새 메모) */
+.primary-button {
+    background-color: #4CAF50; /* Green */
+    color: white;
+}
+.primary-button:hover:not(:disabled) {
+    background-color: #43A047;
+}
+
+/* 보조 액션 버튼 (수정) */
+.secondary-button {
+    background-color: #2196F3; /* Blue */
+    color: white;
+}
+.secondary-button:hover:not(:disabled) {
+    background-color: #1E88E5;
+}
+
+/* 뒤로가기/취소 버튼 */
+.back-button {
+    background-color: #555;
+    color: white;
+}
+.back-button:hover:not(:disabled) {
+    background-color: #666;
+}
+
+/* 위험 액션 버튼 (삭제) */
+.danger-button {
+    background-color: #F44336; /* Red */
+    color: white;
+}
+.danger-button:hover:not(:disabled) {
+    background-color: #E53935;
+}
+
+/* 로딩/에러 메시지 스타일 */
+.loading-indicator {
+    color: #E5E7EB;
+    font-style: italic;
+    padding: 20px;
+    width: 100%;
+    text-align: center;
+}
+
+.error-container {
+    color: #E5E7EB; /* 텍스트 색상을 배경에 맞게 조정 */
+    background-color: #6b0c0c; /* 어두운 빨간색 배경 */
+    border: 1px solid #F44336;
+    padding: 15px;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 600px;
+    margin: 20px auto;
+}
+
+/* -------------------------------------------------------------------------- */
+/* 5. 반응형 디자인                              */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 1024px) {
+    /* memo-list-item 크기 조정 */
+    .memo-list-item {
+        width: calc(50% - 30px); /* 2열 배치 */
+    }
+}
+
+@media (max-width: 768px) {
+    .wrap_ho {
+        width: 100%;
+        margin-left: 0;
+        /* Header가 따로 구현되어 있다면, 이 wrap_ho는 flex 방향을 바꾸지 않습니다. */
+    }
+
+    .main_text_ho {
+        font-size: 40px;
+    }
+
+    .resent_wrap {
+        margin-left: 20px;
+    }
+
+    .memo-list-item {
+        width: calc(100% - 30px); /* 1열 배치 */
+    }
+
+    .memo-detail {
+        width: calc(100% - 30px);
+        margin: 15px auto;
+    }
 }
