@@ -29,7 +29,7 @@ def create_memo(
     db.refresh(db_memo)
     return db_memo
 
-@router.get("", response_model=List[Memo]) # 경로를 "/" 대신 ""로 변경하여, main.py의 prefix와 완벽히 일치하도록 합니다.
+@router.get("/", response_model=List[Memo]) # 경로를 "/" 대신 ""로 변경하여, main.py의 prefix와 완벽히 일치하도록 합니다.
 def read_memos(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
