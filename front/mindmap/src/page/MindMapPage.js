@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-
+import { useParams } from 'react-router-dom';
 // API 키 및 URL 설정 (Canvas 환경에서 자동으로 주입됩니다)
 // const apiKey = "";
 // const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
@@ -12,11 +12,11 @@ const BACKEND_BASE_URL = 'http://localhost:8000';
 const API_VERSION_PREFIX = '/api/v1'; // main.py에 설정된 prefix
 // MindMapPage.js (수정 후)
 // 💡 프로젝트 ID는 아마도 라우팅 파라미터나 상태로 관리될 것입니다. 임시로 하드코딩된 값이라 가정합니다.
-const PROJECT_ID = 1; // 실제로는 React Router 등에서 가져와야 함.
+// const PROJECT_ID = 1; // 실제로는 React Router 등에서 가져와야 함.
 // 백엔드 Fast API 엔드포인트 URL
 
 // 💡 [최종 수정된 호출 URL]
-const BACKEND_GENERATE_URL = `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/projects/${PROJECT_ID}/generate`;
+// const BACKEND_GENERATE_URL = `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/projects/${PROJECT_ID}/generate`;
 // 참고: project.py 라우터에 prefix="/projects"를 사용했으므로 '/api/v1'은 main.py에서 처리해야 합니다.
 // 현재 백엔드 라우터(project.py)에 맞게 '/projects/{project_id}/generate'로 설정합니다.
 
@@ -156,6 +156,19 @@ const App = () => {
     const [mindMapData, setMindMapData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    // 💡 [수정] useParams를 사용하여 프로젝트 ID를 동적으로 가져옵니다.
+    const { projectId: routeProjectId } = useParams();
+    
+    // 프로젝트 ID를 상수로 정의하거나, 숫자로 변환합니다.
+    // URL 파라미터는 문자열이므로 숫자로 변환합니다 (NaN 방지).
+    const PROJECT_ID = parseInt(routeProjectId, 10);
+    
+    // 💡 [수정] BACKEND_GENERATE_URL을 컴포넌트 내에서 PROJECT_ID를 사용해 동적으로 정의합니다.
+    // projectId가 유효하지 않으면 요청을 보내지 않도록 합니다.
+    const BACKEND_GENERATE_URL = PROJECT_ID && !isNaN(PROJECT_ID)
+        ? `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/projects/${PROJECT_ID}/generate`
+        : null;
     
     // Ref: 채팅 로그 자동 스크롤을 위한 참조
     const chatLogRef = React.useRef(null);
@@ -203,9 +216,9 @@ const App = () => {
 
     // 마인드맵 생성 로직 (Gemini API 호출)
     const generateMindMap = useCallback(async () => {
-        if (chatHistory.length < 2) {
-            // alert 대신 UI 메시지를 사용하는 것이 좋습니다. (alert 사용 금지 규칙 준수)
-            console.error('마인드맵을 생성하려면 최소한 사용자 메시지가 하나 필요합니다.');
+        if (!BACKEND_GENERATE_URL || chatHistory.length < 2) { // 💡 [추가] URL 유효성 검사
+            console.error('유효하지 않은 프로젝트 ID 또는 대화 내용 부족.');
+            setError("프로젝트 ID가 유효하지 않거나 대화 내용이 부족합니다.");
             return;
         }
 
@@ -298,7 +311,7 @@ const App = () => {
             // UI 상태 복원: 로딩 종료
             setIsLoading(false);
         }
-    }, [chatHistory]);
+    },[chatHistory, BACKEND_GENERATE_URL]);
 
 
     return (

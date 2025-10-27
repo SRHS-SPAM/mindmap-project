@@ -4,6 +4,8 @@ import "./HomePage.css"
 import Header from "../component/Header";
 import Friends from "../component/Friends";
 
+import { useNavigate } from 'react-router-dom'; // 💡 [추가]
+
 // 💡 [추가] API 기본 설정
 const BACKEND_BASE_URL = 'http://localhost:8000';
 const API_VERSION_PREFIX = '/api/v1';
@@ -34,6 +36,8 @@ const HomePage = () => {
     const [isLoading, setIsLoading] = useState(true); // 💡 [추가] 로딩 상태
     const [error, setError] = useState(null); // 💡 [추가] 오류 상태
     const [newProjectTitle, setNewProjectTitle] = useState(''); // 💡 [추가] 새 프로젝트 제목 입력
+    const navigate = useNavigate(); // 💡 [추가] useNavigate 훅 사용
+    
 
     // --- 프로젝트 목록 불러오기 (GET /projects) ---
     const fetchProjects = useCallback(async () => {
@@ -108,10 +112,7 @@ const HomePage = () => {
 
     // --- 프로젝트 클릭 시 이동 (실제 라우팅으로 대체해야 함) ---
     const handleProjectClick = (projectId) => {
-        console.log(`[TO DO] 프로젝트 ID ${projectId}의 MindMap 페이지로 이동합니다.`);
-        // 💡 실제 프로덕션에서는 window.location.href 또는 useNavigate/history.push를 사용합니다.
-        // 예: navigate(`/mindmap/${projectId}`); 
-        alert(`프로젝트 ID ${projectId}의 MindMap 페이지로 이동합니다. (라우팅 필요)`);
+        navigate(`/mind/${projectId}`);
     };
 
     // --- 컴포넌트 마운트 시 프로젝트 목록 로드 ---

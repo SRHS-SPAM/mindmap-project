@@ -25,7 +25,7 @@ function App() {
         <Route path="/home" element={<HomePage />} />
         <Route path="/friend" element={<FriendPage />} />
         <Route path="/about" element={<AboutPage />} />
-        <Route path="/mind" element={<MindMapPage />} />
+        <Route path="/mind/:projectId" element={<MindMapPage />} />
         <Route path="/memo" element={<MemoPage />} />
         <Route path="/notification" element={<NotificationPage />} />
          <Route path="/info" element={<InfoPage />} />
