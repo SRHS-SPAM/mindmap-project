@@ -25,8 +25,60 @@ from ..schemas import (
 from ..security import get_current_active_user
 # 💡 [가정] services.ai_analyzer 모듈 임포트
 from ..services.ai_analyzer import analyze_chat_and_generate_map, recommend_map_improvements
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import joinedload
+from pydantic import ValidationError # 추가^^
+
+# ----------------------------------------------------
+# 💡 핵심 1: 멤버십 서비스/유틸리티 함수 (403 오류 해결의 핵심)
+# ----------------------------------------------------
+def get_project_member(db: Session, user_id: int, project_id: int) -> Optional[ORMProjectMember]:
+    """특정 프로젝트에서 사용자의 멤버십 정보를 조회합니다."""
+    return db.query(ORMProjectMember).filter(
+        ORMProjectMember.project_id == project_id,
+        ORMProjectMember.user_id == user_id
+    ).first()
+
+def verify_project_member_dependency(
+    project_id: int, 
+    db: Session = Depends(get_db), 
+    current_user: ORMUser = Depends(get_current_active_user)
+) -> ORMProjectMember:
+    """FastAPI Depends로 사용하여 권한이 없으면 403을 발생시킵니다."""
+    member = get_project_member(db, current_user.id, project_id)
+    
+    if not member:
+        # 🚨 프론트엔드에서 발생했던 403 오류를 여기서 처리합니다.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="User is not a member of this project."
+        )
+    return member # 멤버 ORM 객체 반환
+
+# ----------------------------------------------------
+# 💡 [라우터 정의]
+# ----------------------------------------------------
+router = APIRouter(
+    prefix="/projects",
+    tags=["4. Project and MindMap"]
+)
+
+# --- 프로젝트 CRUD ---
+
+# (기존 create_project, list_projects, get_project_details, update_project, delete_project 함수는
+#  단순히 verify_project_member를 호출하던 방식이었으므로, 기존 코드를 유지하고
+#  verify_project_member_dependency를 활용하도록 수정하지 않았습니다.
+#  기존 코드의 verify_project_member를 제거하고 상단의 get_project_member를 사용하도록 정의합니다.)
+
+# 💡 [수정] 기존 코드에서 사용된 임시 멤버 검증 함수를 상단의 get_project_member를 사용하여 재정의합니다.
+def verify_project_member(db: Session, project_id: int, user_id: int):
+    member = get_project_member(db, user_id, project_id)
+    if not member:
+        raise HTTPException(
+            status_code=403, 
+            detail="User is not a member of this project."
+        )
+
 
 # 임시 멤버 검증 함수 (제공된 코드에 없어서 임시로 정의)
 def verify_project_member(db: Session, project_id: int, user_id: int):
@@ -226,14 +278,16 @@ def get_chat_history(
 @router.post("/{project_id}/generate", response_model=AIAnalysisResult)
 def generate_mindmap(
     project_id: int,
-    current_user: ORMUser = Depends(get_current_active_user),
+    # 💡 [핵심 통합] 403 권한 검사를 Depends에 위임합니다.
+    member: ORMProjectMember = Depends(verify_project_member_dependency), 
+    current_user: ORMUser = Depends(get_current_active_user), # 토큰 검증은 여기서 이미 처리됨
     db: Session = Depends(get_db)
 ):
     """채팅 기록을 기반으로 AI 마인드맵 생성/업데이트 요청"""
-    verify_project_member(db, project_id, current_user.id)
 
     db_project = db.query(ORMProject).filter(ORMProject.id == project_id).first()
     if not db_project:
+        # verify_project_member_dependency를 통과했다면 발생 가능성이 낮지만, 안전을 위해 남겨둠
         raise HTTPException(status_code=404, detail="Project not found")
 
     if db_project.is_generating:
@@ -248,33 +302,31 @@ def generate_mindmap(
     try:
         last_processed_id = db_project.last_chat_id_processed or 0
         
-        # 💡 analyze_chat_and_generate_map 호출
+        # 💡 analyze_chat_and_generate_map 호출 (DB 세션 전달)
         analysis_result: AIAnalysisResult = analyze_chat_and_generate_map(
             project_id=project_id,
             chat_history=chat_history,
             last_processed_chat_id=last_processed_id,
-            db_session=db # DB 세션을 인자로 전달 (ORM 조회용)
+            db_session=db
         )
         
-        # 분석이 성공했을 때만 노드 업데이트 및 플래그 해제
-        if analysis_result.is_success and analysis_result.mindmap_data and analysis_result.mindmap_data.nodes:
-            # 1. 기존 노드 삭제 (MindMapData 스키마 내에 노드들이 전부 포함되어 있다고 가정)
+        # 분석이 성공하고 유효한 데이터가 있을 때만 노드 업데이트
+        if analysis_result.is_success and analysis_result.mind_map_data and analysis_result.mind_map_data.nodes:
+            # 1. 기존 노드 삭제
             db.query(ORMDatabaseMindMapNode).filter(ORMDatabaseMindMapNode.project_id == project_id).delete(synchronize_session=False)
             
             # 2. 새로운 노드 ORM 객체 생성 및 추가
             new_nodes = []
-            for node_data in analysis_result.mindmap_data.nodes:
+            for node_data in analysis_result.mind_map_data.nodes:
+                # 🚨 connections 필드가 JSON 컬럼임을 가정하고 Pydantic 객체를 to_dict() 또는 json.dumps로 변환해야 할 수 있습니다.
+                # 현재는 스키마/모델의 타입이 직접적으로 일치한다고 가정하고 처리합니다.
                 db_node = ORMDatabaseMindMapNode(
                     project_id=project_id,
                     id=node_data.id,
-                    parent_id=node_data.parent_id,
                     node_type=node_data.node_type,
                     title=node_data.title,
                     description=node_data.description,
-                    # connections 필드가 ORM 모델에 맞게 처리된다고 가정
-                    # 'connections'는 JSON 형태로 저장되어야 할 수 있습니다. 
-                    # 임시로 문자열/리스트 저장 방식이라고 가정하고 구현합니다.
-                    connections=node_data.connections # 스키마와 모델의 connections 타입 일치 필요
+                    connections=node_data.connections 
                 )
                 new_nodes.append(db_node)
 
@@ -285,25 +337,36 @@ def generate_mindmap(
             db_project.is_generating = False
             db.commit()
         else:
-            # 분석은 성공했지만 유효한 데이터가 없거나, is_success가 False인 경우
+            # 유효한 데이터가 없는 경우
             db_project.is_generating = False
             db.commit()
-            raise HTTPException(status_code=400, detail="AI analysis result was empty or failed.")
+            raise HTTPException(status_code=400, detail="AI analysis result was empty or failed (is_success=False).")
             
-    except Exception as e:
-        # 오류 발생 시 플래그 해제 및 롤백
+    except ValidationError as e:
+        # Pydantic 스키마(AIAnalysisResult) 파싱 오류 처리
         db.rollback()
         db_project.is_generating = False
         db.commit()
-        raise HTTPException(status_code=500, detail=f"AI analysis failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"AI response validation error. Check AI output format. Detail: {e}"
+        )
+    except Exception as e:
+        # 기타 오류 발생 시 플래그 해제 및 롤백
+        db.rollback()
+        db_project.is_generating = False
+        db.commit()
+        # 💡 GCP/Vertex AI 관련 오류가 여기서 포착됩니다.
+        raise HTTPException(status_code=500, detail=f"AI analysis failed due to internal error: {e}")
 
     return analysis_result
 
-
-@router.get("/{project_id}/mindmap", response_model=List[ORMMindMapNode]) # Pydantic 모델을 response_model로 사용
+# --- 마인드맵 조회 및 업데이트 ---
+@router.get("/{project_id}/mindmap", response_model=List[ORMMindMapNode])
 def get_mindmap_nodes(
     project_id: int,
-    current_user: ORMUser = Depends(get_current_active_user),
+    # 💡 [핵심 통합] 403 권한 검사를 Depends에 위임합니다.
+    current_user: ORMProjectMember = Depends(verify_project_member_dependency), 
     db: Session = Depends(get_db)
 ):
     """현재 마인드맵 노드 전체 조회"""
@@ -313,12 +376,13 @@ def get_mindmap_nodes(
     nodes = db.query(ORMDatabaseMindMapNode).filter(ORMDatabaseMindMapNode.project_id == project_id).all()
     return nodes
 
-@router.put("/{project_id}/node/{node_id}", response_model=ORMMindMapNode) # Pydantic 모델을 response_model로 사용
+@router.put("/{project_id}/node/{node_id}", response_model=ORMMindMapNode)
 def update_mindmap_node(
     project_id: int,
     node_id: str,
     node_update: MindMapNodeBase,
-    current_user: ORMUser = Depends(get_current_active_user),
+    # 💡 [핵심 통합] 403 권한 검사를 Depends에 위임합니다.
+    current_user: ORMProjectMember = Depends(verify_project_member_dependency), 
     db: Session = Depends(get_db)
 ):
     """마인드맵 노드 상세 정보 수정 (title, description)"""
@@ -356,7 +420,8 @@ def update_mindmap_node(
 @router.post("/{project_id}/recommend", response_model=AIRecommendation)
 def get_ai_recommendation(
     project_id: int,
-    current_user: ORMUser = Depends(get_current_active_user),
+    # 💡 [핵심 통합] 403 권한 검사를 Depends에 위임합니다.
+    current_user: ORMProjectMember = Depends(verify_project_member_dependency), 
     db: Session = Depends(get_db)
 ):
     """마인드맵 기반 AI 개선 추천 (500자 이내)"""

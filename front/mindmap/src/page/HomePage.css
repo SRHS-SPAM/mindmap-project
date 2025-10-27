@@ -66,7 +66,7 @@
 
 }
 
-.act_wrap p{
+.act_wrap>p{
     width: 250px;
     height: 150px;
 
@@ -75,3 +75,24 @@
     background-color: #D9D9D9;
 }
 
+.act_wrap {
+    /* 기존 스타일 유지하면서, 프로젝트 카드들이 세로로 잘 쌓이도록 조정 */
+    display: flex;
+    flex-direction: column; /* 세로로 나열 */
+    gap: 10px; /* 프로젝트 카드 사이의 간격 */
+    padding: 10px; /* 내부 패딩 */
+}
+
+/* act_wrap_item에 대한 스타일 추가 (ProjectCard의 클래스) */
+.act_wrap_item {
+    padding: 15px;
+    border-radius: 8px;
+    background-color: #ffffff; /* 흰색 배경 */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease-in-out;
+}
+
+.act_wrap_item:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-2px);
+}

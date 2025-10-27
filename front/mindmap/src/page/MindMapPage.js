@@ -1,8 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
-
+import { useParams } from 'react-router-dom';
 // API 키 및 URL 설정 (Canvas 환경에서 자동으로 주입됩니다)
-const apiKey = "";
-const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+// const apiKey = "";
+// const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+// 💡 백엔드 FastAPI 서버의 기본 URL을 상수로 정의
+// (FastAPI가 8000번 포트에서 실행된다고 가정)
+const BACKEND_BASE_URL = 'http://localhost:8000';
+
+// 💡 [수정 필요] API 버전과 프로젝트 라우터를 포함하여 정확한 경로를 명시합니다.
+const API_VERSION_PREFIX = '/api/v1'; // main.py에 설정된 prefix
+// MindMapPage.js (수정 후)
+// 💡 프로젝트 ID는 아마도 라우팅 파라미터나 상태로 관리될 것입니다. 임시로 하드코딩된 값이라 가정합니다.
+// const PROJECT_ID = 1; // 실제로는 React Router 등에서 가져와야 함.
+// 백엔드 Fast API 엔드포인트 URL
+
+// 💡 [최종 수정된 호출 URL]
+// const BACKEND_GENERATE_URL = `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/projects/${PROJECT_ID}/generate`;
+// 참고: project.py 라우터에 prefix="/projects"를 사용했으므로 '/api/v1'은 main.py에서 처리해야 합니다.
+// 현재 백엔드 라우터(project.py)에 맞게 '/projects/{project_id}/generate'로 설정합니다.
 
 // 마인드맵 JSON 구조 정의
 const mindMapSchema = {
@@ -140,6 +156,19 @@ const App = () => {
     const [mindMapData, setMindMapData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    // 💡 [수정] useParams를 사용하여 프로젝트 ID를 동적으로 가져옵니다.
+    const { projectId: routeProjectId } = useParams();
+    
+    // 프로젝트 ID를 상수로 정의하거나, 숫자로 변환합니다.
+    // URL 파라미터는 문자열이므로 숫자로 변환합니다 (NaN 방지).
+    const PROJECT_ID = parseInt(routeProjectId, 10);
+    
+    // 💡 [수정] BACKEND_GENERATE_URL을 컴포넌트 내에서 PROJECT_ID를 사용해 동적으로 정의합니다.
+    // projectId가 유효하지 않으면 요청을 보내지 않도록 합니다.
+    const BACKEND_GENERATE_URL = PROJECT_ID && !isNaN(PROJECT_ID)
+        ? `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/projects/${PROJECT_ID}/generate`
+        : null;
     
     // Ref: 채팅 로그 자동 스크롤을 위한 참조
     const chatLogRef = React.useRef(null);
@@ -187,9 +216,9 @@ const App = () => {
 
     // 마인드맵 생성 로직 (Gemini API 호출)
     const generateMindMap = useCallback(async () => {
-        if (chatHistory.length < 2) {
-            // alert 대신 UI 메시지를 사용하는 것이 좋습니다. (alert 사용 금지 규칙 준수)
-            console.error('마인드맵을 생성하려면 최소한 사용자 메시지가 하나 필요합니다.');
+        if (!BACKEND_GENERATE_URL || chatHistory.length < 2) { // 💡 [추가] URL 유효성 검사
+            console.error('유효하지 않은 프로젝트 ID 또는 대화 내용 부족.');
+            setError("프로젝트 ID가 유효하지 않거나 대화 내용이 부족합니다.");
             return;
         }
 
@@ -198,82 +227,78 @@ const App = () => {
         setMindMapData(null);
         setError(null);
         
-        try {
-            // API 요청에 필요한 모든 채팅 내용 추출
-            const conversationPrompt = chatHistory.map(msg => 
-                `${msg.role === 'user' ? '사용자' : 'AI'}: ${msg.text}`
-            ).join('\n');
-            
-            const systemPrompt = `
-                당신은 대화 내용을 마인드맵 구조로 변환하는 AI 비서입니다.
-                제공된 대화 내용을 분석하여 핵심 주제(mainTopic) 1개와 주요 아이디어(branches) 3~5개를 추출하세요.
-                각 주요 아이디어에는 3개 이상의 구체적인 세부 사항(details)을 포함해야 합니다.
-                결과는 반드시 다음 JSON 스키마를 따라야 합니다.
-            `;
+        // 💡 백엔드 Fast API 엔드포인트는 project_id만 필요하고, 
+        // 채팅 내역은 백엔드가 DB에서 직접 가져오도록 설계되어 있습니다.
+        // 따라서, payload는 빈 객체이거나, 필요한 경우 project_id만 포함하면 됩니다.
+        // (현재 project_id는 URL에 포함되어 있음)
 
-            // API Payload 구성
-            const payload = {
-                contents: [{ parts: [{ text: conversationPrompt }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: mindMapSchema
-                },
-            };
-            
-            // --- API 호출 및 응답 처리 (재시도 로직 포함) ---
-            
+        try {
             let response;
-            let parsedJson = null;
+            let parsedResult = null;
             let errorMessage = null;
 
-            const MAX_RETRIES = 3;
+            const MAX_RETRIES = 1; // 재시도는 백엔드에서 처리하도록 맡기는 것이 좋습니다.
+
             for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
                 try {
-                    response = await fetch(apiUrl, {
+                    // 💡 1. 저장된 토큰을 가져옵니다. (토큰이 로컬 스토리지에 저장되어 있다고 가정)
+                    const authToken = localStorage.getItem('access_token'); // 또는 쿠키에서 가져옵니다.
+
+                    // 💡 2. 토큰이 없으면 함수를 종료하거나 오류를 보고합니다.
+                    if (!authToken) {
+                        console.error("인증 토큰이 없습니다. 로그인 상태를 확인하세요.");
+                        return; // 요청을 보내지 않음
+                    }
+
+                    // 💡 [수정됨] 백엔드 API 호출로 변경!
+                    response = await fetch(BACKEND_GENERATE_URL, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        // JWT 토큰 등을 'Authorization' 헤더에 포함시켜야 할 수 있습니다. (로그인 구현 시)
+                        headers: {
+                            'Content-Type': 'application/json',
+                            // 💡 [핵심 추가] Authorization 헤더에 Bearer 토큰을 추가합니다.
+                            'Authorization': `Bearer ${authToken}` 
+                        },
+                        // Fast API generate 엔드포인트는 body가 필요 없거나 project_id를 URL에 사용합니다.
+                        // body: JSON.stringify({}), // 요청 본문은 비워두거나 필요에 따라 조정
                     });
 
                     if (response.ok) {
-                        const result = await response.json();
-                        const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                        if (jsonText) {
-                            parsedJson = JSON.parse(jsonText);
+                        // 백엔드에서 온 JSON 응답을 바로 파싱
+                        const result = await response.json(); 
+                        
+                        // 💡 [가정] 백엔드의 응답 스키마(AIAnalysisResult)에 
+                        // 마인드맵 데이터가 `mindmap_data` 필드에 포함되어 있다고 가정합니다.
+                        if (result.is_success && result.mindmap_data) {
+                            parsedResult = result.mindmap_data;
                             break; // 성공
                         } else {
-                            throw new Error("API 응답에서 JSON 텍스트를 찾을 수 없습니다.");
+                            throw new Error(`백엔드 분석 실패: ${result.message || 'AI 분석 결과가 유효하지 않습니다.'}`);
                         }
                     } else {
                         // 4xx/5xx 에러 처리
-                        throw new Error(`API 요청 실패: ${response.status} ${response.statusText}`);
+                        const errorDetail = await response.json().catch(() => ({ detail: '응답 본문 파싱 실패' }));
+                        throw new Error(`API 요청 실패: ${response.status} (${response.statusText}). 상세: ${errorDetail.detail}`);
                     }
                 } catch (error) {
                     errorMessage = error.message;
                     console.error(`Attempt ${attempt + 1} failed:`, error);
-                    if (attempt < MAX_RETRIES - 1) {
-                        const delay = Math.pow(2, attempt) * 1000;
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    } else {
-                        // 마지막 시도 실패 시 상태 업데이트
-                        setError("API 호출이 최대 재시도 횟수를 초과하여 실패했습니다.");
-                    }
                 }
             }
             
             // 최종 결과 처리
-            if (parsedJson) {
-                setMindMapData(parsedJson);
+            if (parsedResult) {
+                // 💡 [수정됨] 백엔드에서 받은 실제 마인드맵 데이터로 업데이트
+                setMindMapData(parsedResult); 
             } else {
-                 console.warn("API 호출 실패 또는 결과 없음. 시뮬레이션 데이터로 대체합니다.");
-                 const fallbackData = generateFallbackMindMap(conversationPrompt);
-                 setMindMapData(fallbackData);
-                 if (errorMessage) {
+                // 실패 시 대체 데이터 처리 유지 (디버깅 용)
+                console.warn("백엔드 호출 실패 또는 결과 없음. 시뮬레이션 데이터로 대체합니다.");
+                const conversationText = chatHistory.map(msg => msg.text).join(' ');
+                setMindMapData(generateFallbackMindMap(conversationText));
+                if (errorMessage) {
                     setError(errorMessage);
-                 }
+                }
             }
-
         } catch (err) {
             console.error('마인드맵 생성 중 심각한 오류 발생:', err);
             setError("마인드맵 생성 중 알 수 없는 오류가 발생했습니다.");
@@ -286,7 +311,7 @@ const App = () => {
             // UI 상태 복원: 로딩 종료
             setIsLoading(false);
         }
-    }, [chatHistory]);
+    },[chatHistory, BACKEND_GENERATE_URL]);
 
 
     return (
