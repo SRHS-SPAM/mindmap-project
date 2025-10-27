@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from ..database import get_db
+# 🚨 friend_code 생성을 위한 함수 임포트 (아래에 함수 정의 코드 추가 예정)
+from ..utils import create_friend_code 
 from ..security import get_password_hash, verify_password, create_access_token, get_current_active_user
 from ..models import User 
-# 🚨 수정됨: UserLogin 스키마를 추가로 임포트합니다.
 from ..schemas import UserCreate, UserLogin, User as UserSchema, Token 
 
 router = APIRouter()
@@ -18,17 +19,25 @@ def signup_user(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
-    
+        
     # 비밀번호 해시
     hashed_password = get_password_hash(user.password)
-    
-    # User 인스턴스 생성 시 name 필드 추가
+        
+    # 🚨 친구 코드 생성
+    # 유니크한 친구 코드를 생성하고 중복이 없을 때까지 재시도합니다.
+    while True:
+        new_friend_code = create_friend_code()
+        if not db.query(User).filter(User.friend_code == new_friend_code).first():
+            break
+        
+    # User 인스턴스 생성 시 name 필드 및 friend_code 필드 추가
     db_user = User(
         email=user.email, 
-        name=user.name, # name 필드 추가
-        hashed_password=hashed_password
+        name=user.name,
+        hashed_password=hashed_password,
+        friend_code=new_friend_code  # 🚨 친구 코드 저장
     )
-    
+        
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -39,7 +48,7 @@ def signup_user(user: UserCreate, db: Session = Depends(get_db)):
 def login_for_access_token(user: UserLogin, db: Session = Depends(get_db)):
     # 사용자 이메일로 조회
     db_user = db.query(User).filter(User.email == user.email).first()
-    
+        
     # 사용자 존재 여부 및 비밀번호 확인
     if not db_user or not verify_password(user.password, db_user.hashed_password):
         raise HTTPException(
@@ -59,18 +68,25 @@ def login_for_access_token(user: UserLogin, db: Session = Depends(get_db)):
 @router.post("/oauth/{provider}", response_model=Token, summary="소셜 로그인 (Mock)")
 def social_login_mock(provider: str, db: Session = Depends(get_db)):
     # provider는 URL 경로에서 자동으로 추출됩니다 (예: kakao, google, naver)
-    
+        
     # 목업 구현: 'mock_user@social.com' 사용자로 가정하고 토큰을 발급합니다.
     email = f"mock_user_{provider}@social.com"
     db_user = db.query(User).filter(User.email == email).first()
-    
+        
     if not db_user:
+        # 🚨 소셜 로그인/회원가입 시에도 친구 코드 생성
+        while True:
+            new_friend_code = create_friend_code()
+            if not db.query(User).filter(User.friend_code == new_friend_code).first():
+                break
+
         # 소셜 신규 회원가입 처리 (name은 이메일 앞부분으로 임시 설정)
         db_user = User(
             email=email, 
             name=f"Social User ({provider})", # 임시 name 설정
             hashed_password=get_password_hash("social_temp_pass"), 
-            social_provider=provider
+            social_provider=provider,
+            friend_code=new_friend_code # 🚨 친구 코드 저장
         )
         db.add(db_user)
         db.commit()

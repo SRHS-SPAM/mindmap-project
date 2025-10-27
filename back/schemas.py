@@ -3,16 +3,10 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 # --- 인증 및 사용자 기본 스키마 ---
-from pydantic import BaseModel, EmailStr
-from typing import Optional
-from datetime import datetime
-
-# --- 인증 및 사용자 기본 스키마 ---
 class UserBase(BaseModel):
     email: EmailStr
-    name: str # models.User에도 name 컬럼이 존재함
+    name: str 
 
-# 🚨 수정: UserLogin 스키마를 새로 정의하여 name 필드를 제외합니다.
 class UserLogin(BaseModel):
     """사용자 로그인 시 필요 (email과 password만 포함)"""
     email: EmailStr
@@ -22,21 +16,14 @@ class UserCreate(UserBase):
     """사용자 회원가입 시 필요 (password 포함)"""
     password: str
 
-class Token(BaseModel):
-    """JWT 토큰 응답 모델"""
-    access_token: str
-    token_type: str
-
-class User(UserBase):
-    """사용자 정보 응답 모델 (password 제외)"""
+# 기존 User 스키마 (친구 검색 결과 등에서 사용)
+class User(BaseModel):
     id: int
-    is_active: bool
-    last_activity: Optional[datetime] = None # 온라인 상태 확인용
-    is_online: bool # models.User에 is_online 필드 추가됨
+    email: EmailStr
+    username: Optional[str] = None
+    friend_code: Optional[str] = None
+    is_online: Optional[bool] = False
     
-    # 🚨 추가: 소셜 로그인 필드 (optional)
-    social_provider: Optional[str] = None 
-
     class Config:
         from_attributes = True
 
@@ -53,20 +40,42 @@ class TokenData(BaseModel):
     email: Optional[str] = None
 
 # --- 친구 관계 스키마 ---
-class FriendRequest(BaseModel):
-    recipient_email: EmailStr # 친구 요청을 보낼 이메일
 
-class FriendStatus(BaseModel):
-    id: int
-    user_id: int
-    friend_id: int
-    status: str # "pending", "accepted", "rejected"
-    
+
+# 🚨 새 스키마: 친구 요청 (POST 요청 본문)
+class FriendRequest(BaseModel):
+    friend_code: str # 친구 코드를 통해 요청 대상을 지정
+
+# 🚨 수정됨: 필드명을 DB 모델(Friendship)과 동일하게 user_id와 friend_id로 변경
+class FriendshipBase(BaseModel):
+    user_id: int # 요청을 보낸 사용자 ID (requester)
+    friend_id: int # 요청을 받은 사용자 ID (receiver)
+    status: str = "pending" # 초기 상태: pending, accepted
+    created_at: datetime
+    updated_at: datetime
+
     class Config:
         from_attributes = True
+
+# 🚨 새 스키마: 알림 페이지에 보낼 친구 요청 정보
+class FriendNotification(BaseModel):
+    id: int # Friendship 레코드 ID (수락/거절 시 사용)
+    sender_id: int # 요청을 보낸 사람 ID
+    sender_name: Optional[str] # 요청을 보낸 사람 이름
+    sender_friend_code: str # 요청을 보낸 사람의 친구 코드
+    status: str # 현재 상태 (pending)
+
+    class Config:
+        from_attributes = True
+
+# 🚨 새 스키마: 친구 요청 수락/거절을 위한 POST 요청
+class FriendAction(BaseModel):
+    friendship_id: int # Friendship 테이블의 ID
+    action: str # "accept" 또는 "reject"
     
 # --- 메모 스키마 ---
 class MemoBase(BaseModel):
+# ... (이하 메모, 프로젝트, 채팅, 마인드맵 스키마는 변경 없음)
     title: str
     content: str
     
