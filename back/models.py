@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, JSON
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, JSON, UniqueConstraint
+from sqlalchemy.orm import relationship, backref # backref 추가
 from sqlalchemy.sql import func
 from .database import Base
 
@@ -10,35 +10,63 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     
-    # [수정] name 컬럼 추가
+    # 💡 name 필드는 스키마에서 username으로 사용될 수 있습니다.
     name = Column(String, index=True) 
     
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
     
-    # 소셜 로그인 제공자 (예: 'kakao', 'google', 'naver')
     social_provider = Column(String, nullable=True) 
     
-    # 온라인 상태 (친추 기능 구현을 위한 기본 필드)
     is_online = Column(Boolean, default=False)
+    
+    # 친구 코드는 user.py에서 핵심적으로 사용됩니다.
+    friend_code = Column(String(7), unique=True, index=True, nullable=False) 
     
     # 릴레이션 정의
     memos = relationship("Memo", back_populates="owner")
     projects = relationship("ProjectMember", back_populates="user")
     
-    # 친구 관계 (간단화를 위해 양방향 관계 대신 단방향 요청만 가정)
-    friends = relationship("Friendship", foreign_keys='[Friendship.user_id]', back_populates="user")
-    friend_code = Column(String(7), unique=True, index=True)
-    
+    # 🚨 친구 관계 릴레이션 정의 (user.py 로직과 일치)
+    # user_id (요청을 보낸 사람) 기준
+    sent_friendships = relationship(
+        "Friendship", 
+        foreign_keys='[Friendship.user_id]', # Friendship.user_id가 나(User.id)인 경우
+        back_populates="requester"
+    )
+    # friend_id (요청을 받은 사람) 기준
+    received_friendships = relationship(
+        "Friendship", 
+        foreign_keys='[Friendship.friend_id]', # Friendship.friend_id가 나(User.id)인 경우
+        back_populates="receiver"
+    )
+
+# 🚨 Friendship 모델 (친구 요청 및 관계 상태 관리)
 class Friendship(Base):
     __tablename__ = "friendships"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id")) # 친구 요청을 보낸 사용자
-    friend_id = Column(Integer, ForeignKey("users.id")) # 친구가 된 사용자
-    created_at = Column(DateTime, default=func.now())
     
-    user = relationship("User", foreign_keys=[user_id], back_populates="friends")
+    # 요청을 보낸 사용자 (user_id)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True) 
+    # 요청을 받은 사용자 (friend_id)
+    friend_id = Column(Integer, ForeignKey("users.id"), index=True) 
+    
+    # 친구 요청 상태 (user.py에서 사용: 'pending', 'accepted', 'rejected')
+    status = Column(String, default="pending") 
+    
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    # 관계 정의: requester (요청자)와 receiver (수신자)를 명확하게 구분
+    requester = relationship("User", foreign_keys=[user_id], back_populates="sent_friendships")
+    receiver = relationship("User", foreign_keys=[friend_id], back_populates="received_friendships")
+
+    # 고유 인덱스: 동일한 요청이 중복되는 것을 방지
+    # (user_id, friend_id 순서 쌍만 고유함을 보장. 역방향은 허용)
+    __table_args__ = (
+        UniqueConstraint('user_id', 'friend_id', name='_user_friend_uc'),
+    )
 
 
 # --- 메모 기능 모델 ---
@@ -65,11 +93,11 @@ class Project(Base):
     
     # 마인드맵 생성 상태 관리
     is_generating = Column(Boolean, default=False) 
-    last_chat_id_processed = Column(Integer, default=0) # AI가 마지막으로 분석한 채팅 ID
+    last_chat_id_processed = Column(Integer, default=0) 
     
     members = relationship("ProjectMember", back_populates="project")
     chats = relationship("ChatMessage", back_populates="project")
-    nodes = relationship("MindMapNode", back_populates="project") # 현재 마인드맵 노드 목록
+    nodes = relationship("MindMapNode", back_populates="project")
 
 
 class ProjectMember(Base):
@@ -78,11 +106,14 @@ class ProjectMember(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
-    is_admin = Column(Boolean, default=False) # 관리자 권한 추가 (models.py에는 누락되어 있었지만, project.py에서 사용되므로 추가)
+    is_admin = Column(Boolean, default=False) 
     
     project = relationship("Project", back_populates="members")
     user = relationship("User", back_populates="projects")
     
+    __table_args__ = (
+        UniqueConstraint('project_id', 'user_id', name='_project_member_uc'),
+    )
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
@@ -100,16 +131,14 @@ class ChatMessage(Base):
 class MindMapNode(Base):
     __tablename__ = "mindmap_nodes"
     
-    id = Column(String, primary_key=True, index=True) # 고유 ID (예: 'core-1', 'major-5')
+    id = Column(String, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"))
     
-    # 노드 속성
-    node_type = Column(String) # '핵심 주제', '대주제', '소주제'
+    node_type = Column(String) 
     title = Column(String)
     description = Column(Text)
     
-    # 연결 정보 (JSON 형태로 저장하여 복잡한 연결 관계를 처리)
-    # 예: [{"target_id": "major-1", "label": "연관성"}, ...]
+    # 연결 정보 (JSON 형태로 저장)
     connections = Column(JSON, default=lambda: []) 
 
     project = relationship("Project", back_populates="nodes")
