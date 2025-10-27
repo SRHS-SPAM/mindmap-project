@@ -26,7 +26,7 @@ def search_user_by_friend_code(
         
     return user_found
 
-# 🚨 수정: 친구 요청 (Friendship 상태를 'pending'으로 생성)
+# 🚨 친구 요청 (Friendship 상태를 'pending'으로 생성)
 @router.post("/friends/add", response_model=FriendshipBase, status_code=status.HTTP_201_CREATED)
 def add_friend_request(
     friend_req: FriendRequest,
@@ -67,7 +67,7 @@ def add_friend_request(
         # 이미 요청이 있다면, 해당 요청을 accepted로 변경하고 새로 레코드 생성 없이 종료
         inverse_request.status = "accepted"
         db.commit()
-        # 💡 성공 응답 대신 HTTPException을 사용하여 프론트에서 즉시 친구로 표시하도록 유도
+        # HTTP 200은 성공을 의미하며, body가 없어도 프론트에서 처리할 수 있도록 detail을 제공합니다.
         raise HTTPException(status_code=200, detail="Inverse request found and automatically accepted.")
 
     # 3. 새로운 요청 (pending) 생성
@@ -97,7 +97,7 @@ def get_friend_requests(
 ):
     """나에게 온 'pending' 상태의 친구 요청 목록을 조회합니다."""
     
-    # Friendship.requester 관계를 JOIN하여 요청자 정보를 가져옵니다.
+    # Friendship.requester 관계는 정상 동작하는 것으로 가정합니다.
     pending_requests = db.query(Friendship).options(
         joinedload(Friendship.requester)
     ).filter(
@@ -165,4 +165,65 @@ def handle_friend_request_action(
         
     return 
 
-# (list_friends_status, set_online_status 함수들은 그대로 둡니다.)
+# ✅ 최종 수정: 수락된 친구 목록 조회 (Friendship.receiver 사용)
+@router.get("/friends/accepted", response_model=List[UserSchema])
+def list_accepted_friends(
+    current_user: UserSchema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """현재 사용자의 'accepted' 상태의 친구 목록을 조회합니다."""
+    
+    # models.py에 정의된 'receiver' 관계를 사용합니다.
+    accepted_friends = db.query(Friendship).options(
+        joinedload(Friendship.receiver) # 🎯 'friend_info' 대신 'receiver'로 수정
+    ).filter(
+        Friendship.user_id == current_user.id,
+        Friendship.status == "accepted"
+    ).all()
+    
+    # Friendship 레코드에서 실제 User 객체('receiver')만 추출하여 반환합니다.
+    friends = [
+        req.receiver for req in accepted_friends if req.receiver # 🎯 'friend' 대신 'receiver'로 수정
+    ]
+    
+    return friends
+
+# 🆕 새 함수: 친구 삭제 (언팔로우)
+@router.delete("/friends/remove/{friend_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_friend(
+    friend_id: int,
+    current_user: UserSchema = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """지정된 ID의 사용자와의 친구 관계를 끊고 관련 레코드를 삭제합니다."""
+    
+    # 1. 정방향 친구 관계 레코드 찾기 (나 -> 친구)
+    # user_id: 현재 사용자, friend_id: 삭제할 친구
+    friendship_record = db.query(Friendship).filter(
+        Friendship.user_id == current_user.id,
+        Friendship.friend_id == friend_id,
+        Friendship.status == "accepted"
+    ).first()
+    
+    # 2. 역방향 친구 관계 레코드 찾기 (친구 -> 나)
+    # user_id: 삭제할 친구, friend_id: 현재 사용자
+    inverse_record = db.query(Friendship).filter(
+        Friendship.user_id == friend_id,
+        Friendship.friend_id == current_user.id,
+        Friendship.status == "accepted"
+    ).first()
+    
+    if not friendship_record and not inverse_record:
+        # 친구 관계가 아니거나, 이미 삭제되었거나, pending 상태인 경우 (pending 삭제는 별도 로직으로 처리 가능)
+        raise HTTPException(status_code=404, detail="Active friendship not found.")
+        
+    # 두 레코드 모두 삭제 (양방향 관계 해제)
+    if friendship_record:
+        db.delete(friendship_record)
+        
+    if inverse_record:
+        db.delete(inverse_record)
+        
+    db.commit()
+    
+    return
