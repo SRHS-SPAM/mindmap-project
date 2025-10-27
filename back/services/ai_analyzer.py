@@ -47,7 +47,7 @@ def create_link(source: str, target: str) -> Dict[str, str]:
 # 💡 마인드맵 생성을 위한 Pydantic 스키마
 class MindMapNodeOutput(BaseModel):
     id: str = Field(..., description="고유한 노드 ID (예: 'core-1')")
-    node_type: str = Field(..., description="노드의 계층 레벨")
+    node_type: str = Field(..., description="노드의 계층 레벨 ('core', 'major', 'minor' 중 하나)")
     title: str = Field(..., description="노드의 핵심 제목")
     description: Optional[str] = Field(None, description="노드의 상세 내용")
     connections: List[Dict[str, str]] = Field(default_factory=list, description="연결 정보")
@@ -99,7 +99,7 @@ def recommend_map_improvements(map_data: Dict[str, Any], chat_history: List[Chat
             contents=[prompt],
             generation_config=GenerationConfig(
                 temperature=0.7,
-                max_output_tokens=500
+                max_output_tokens=1024 # 500자 이내를 위해 토큰을 넉넉히 설정
             )
         )
         return response.text
@@ -201,10 +201,12 @@ def analyze_chat_and_generate_map(
     try:
         response = MODEL_CLIENT.generate_content(
             contents=[prompt],
-            generation_config=GenerationConfig(
+            config=GenerationConfig( # Vertex AI에서는 GenerationConfig를 사용
                 temperature=0.7,
+                # 💡 [수정] response_mime_type 대신 response_schema 사용 (JSON 강제)
                 response_mime_type="application/json",
-                max_output_tokens=2048
+                response_schema=MindMapDataOutput, # Pydantic 클래스 자체를 전달 (JSON 모드 활성화)
+                max_output_tokens=4096 # 마인드맵 노드가 많을 수 있으므로 토큰을 넉넉하게
             )
         )
         

@@ -64,17 +64,18 @@ app.add_middleware(
 )
 
 # 🌟 2. 라우터 등록 및 경로 접두사 설정:
-# 🚨 주의: 각 라우터 파일에 prefix가 이미 설정되어 있으므로, 
-# main.py에서는 최상위 prefix인 '/api/v1'만 적용하는 것이 중복을 막는 좋은 방법입니다.
-# 하지만 기존 코드 스타일을 유지하기 위해, 중복 prefix를 피하기 위해 라우터 파일의 prefix가 
-# 메인 등록시 무시된다고 가정하고 다음과 같이 등록합니다.
+# 🚨 [수정] project.router와 ai.router의 prefix에서 'projects' 또는 'ai'를 제거합니다.
+# 라우터 파일 내부에서 이미 해당 경로를 정의했기 때문에, main.py에서는 /api/v1만 적용합니다.
+
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["1. 인증 및 사용자"])
 app.include_router(user.router, prefix="/api/v1/user", tags=["2. 사용자 및 친구"])
 app.include_router(memo.router, prefix="/api/v1/memo", tags=["3. 메모 관리"])
-app.include_router(project.router, prefix="/api/v1/projects", tags=["4. 프로젝트 및 마인드맵"])
-# 💡 [추가] AI 라우터 등록
-app.include_router(ai.router, prefix="/api/v1/ai", tags=["5. AI 마인드맵 생성"])
 
+# 💡 [핵심 수정] project.router에서 '/projects'를 제거하고 '/api/v1'만 남김
+app.include_router(project.router, prefix="/api/v1", tags=["4. 프로젝트 및 마인드맵"])
+
+# 💡 [추가 수정] ai.router도 마찬가지로 '/ai'를 제거하고 '/api/v1'만 남김
+app.include_router(ai.router, prefix="/api/v1", tags=["5. AI 마인드맵 생성"])
 
 @app.get("/", tags=["Root"])
 def read_root():
