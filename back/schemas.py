@@ -187,3 +187,4 @@ class AIAnalysisResult(BaseModel):
 
 class AIRecommendation(BaseModel):
     recommendation: str
+
