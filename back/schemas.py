@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field, model_validator
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from fastapi import UploadFile # UploadFile 임포트
 
 # --- 인증 및 사용자 기본 스키마 ---
 class UserBase(BaseModel):
@@ -16,13 +17,14 @@ class UserCreate(UserBase):
     """사용자 회원가입 시 필요 (password 포함)"""
     password: str
 
-# 🚨 수정됨: username 필드를 name으로 변경하여 DB 모델(User.name)과 일치시킵니다.
+# 🚨 수정됨: profile_image_url 필드 추가
 class User(BaseModel):
     id: int
     email: EmailStr  # 이메일 조회 (수정 불가능)
     name: Optional[str] = None # 사용자가 설정한 이름
     friend_code: Optional[str] = None
     is_online: Optional[bool] = False
+    profile_image_url: Optional[str] = None # 🆕 프로필 사진 URL 필드 추가
     
     class Config:
         from_attributes = True
