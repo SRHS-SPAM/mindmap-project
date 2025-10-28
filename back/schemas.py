@@ -16,16 +16,26 @@ class UserCreate(UserBase):
     """사용자 회원가입 시 필요 (password 포함)"""
     password: str
 
-# 기존 User 스키마 (친구 검색 결과 등에서 사용)
+# 🚨 수정됨: username 필드를 name으로 변경하여 DB 모델(User.name)과 일치시킵니다.
 class User(BaseModel):
     id: int
-    email: EmailStr
-    username: Optional[str] = None
+    email: EmailStr  # 이메일 조회 (수정 불가능)
+    name: Optional[str] = None # 사용자가 설정한 이름
     friend_code: Optional[str] = None
     is_online: Optional[bool] = False
     
     class Config:
         from_attributes = True
+
+# 🚨 새 스키마: 이름 변경 요청 본문
+class UserUpdateName(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50, description="새로운 사용자 이름")
+
+# 🚨 새 스키마: 비밀번호 변경 요청 본문
+class UserUpdatePassword(BaseModel):
+    old_password: str = Field(..., description="현재 비밀번호")
+    new_password: str = Field(..., min_length=8, description="새로운 비밀번호 (최소 8자)")
+
 
 class UserUpdateStatus(BaseModel):
     timestamp: datetime # 클라이언트가 현재 시간을 보냄
@@ -44,9 +54,6 @@ class TokenData(BaseModel):
     email: Optional[str] = None
 
 # --- 친구 관계 스키마 ---
-
-
-# 🚨 새 스키마: 친구 요청 (POST 요청 본문)
 class FriendRequest(BaseModel):
     friend_code: str # 친구 코드를 통해 요청 대상을 지정
 

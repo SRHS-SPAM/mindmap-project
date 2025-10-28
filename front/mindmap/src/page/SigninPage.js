@@ -141,7 +141,7 @@ const App = () => {
 
             if (response.ok) {
                 // 3. 성공: JWT 토큰 저장 및 홈으로 이동
-                localStorage.setItem('access_token', data.access_token);
+                sessionStorage.setItem('access_token', data.access_token);
                 console.log("Login successful. Token stored:", data.access_token);
                 
                 setMessageBox({ 

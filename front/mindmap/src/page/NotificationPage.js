@@ -51,7 +51,7 @@ const NotificationPage = () => {
         setError(null);
         setStatusMessage(null);
         try {
-            const token = localStorage.getItem('access_token');
+            const token = sessionStorage.getItem('access_token');
             if (!token) {
                 setError("로그인이 필요합니다.");
                 setLoading(false);
@@ -76,7 +76,7 @@ const NotificationPage = () => {
     const handleAction = useCallback(async (friendshipId, action) => {
         setStatusMessage(null);
         try {
-            const token = localStorage.getItem('access_token');
+            const token = sessionStorage.getItem('access_token');
 
             // POST /api/v1/user/user/friends/action
             await axios.post(`${BASE_URL}/friends/action`, {

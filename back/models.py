@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, JSON, UniqueConstraint
-from sqlalchemy.orm import relationship, backref # backref 추가
+from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 from .database import Base
 
