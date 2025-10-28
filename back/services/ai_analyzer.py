@@ -213,6 +213,8 @@ def analyze_chat_and_generate_map(
 ---
 위 채팅 내용을 분석하여 마인드맵 JSON을 생성해주세요.
 """
+    # 💡 [추가] 변수 선언: 어떤 예외가 발생하든 이 변수를 사용 가능하도록 설정
+    json_string = "INITIALIZATION_FAILED" # 기본값 설정
     
     if not CLIENT:
         return AIAnalysisResult(
@@ -233,10 +235,22 @@ def analyze_chat_and_generate_map(
             )
         )
 
-        if response.candidates and response.candidates[0].finish_reason.name == 'MAX_TOKENS':
-            print("⚠️ 경고: 마인드맵 생성이 최대 토큰 한계로 인해 조기 종료되었습니다. 프롬프트를 줄이거나 max_output_tokens를 늘리세요.")
-        
-        # 응답 텍스트를 파싱
+        if not response.text:
+            # 텍스트가 없으면 안전 필터에 의해 차단되었을 가능성이 높습니다.
+            reason = response.candidates[0].finish_reason.name if response.candidates else "UNKNOWN"
+            print(f"🚨🚨 모델 응답 실패: 텍스트가 비어있음. Finish Reason: {reason}")
+            
+            # 모델 응답 객체 전체를 출력하여 안전 필터 정보를 파악합니다.
+            print(f"🚨🚨 응답 객체 전문:\n{response}") 
+            
+            # 텍스트가 없으므로 json_string을 'MODEL_BLOCKED'로 설정하고 실패 반환 로직으로 이동합니다.
+            json_string = "MODEL_BLOCKED" 
+            
+            # 인위적으로 오류를 발생시켜 아래의 상세 로깅 블록으로 이동시킵니다.
+            raise ValueError("Model response was blocked or empty.")
+    
+        # 2. 응답 텍스트를 파싱
+        # 💡 [수정] response.text를 바로 할당
         json_string = response.text
         
         # JSON 파싱 전 정리 (혹시 모를 추가 텍스트 제거)
@@ -267,11 +281,9 @@ def analyze_chat_and_generate_map(
         )
 
     except (json.JSONDecodeError, KeyError, ValueError) as e:
-        print(f"🚨 Vertex AI 응답 파싱 또는 유효성 검사 오류: {e}")
-        # 💡 [수정]: 응답 텍스트를 반드시 출력하여 JSON이 깨진 이유를 확인합니다.
-        # response 변수가 지역 변수로 선언되어 있을 때만 접근 가능하도록 처리
-        response_text = response.text if 'response' in locals() and hasattr(response, 'text') else "N/A"
-        print(f"🚨🚨 받은 응답 (JSON 파싱 실패): \n{response_text}") 
+        print(f"🚨 Vertex AI 응답 파싱 또는 Pydantic 유효성 검사 오류: {e}")
+        # 💡 [수정] 이제 json_string이 외부에서 선언되어 안전하게 접근 가능
+        print(f"🚨🚨 JSON 디코딩 실패 원본 텍스트:\n--- START ---\n{json_string}\n--- END ---") 
         return AIAnalysisResult(
             is_success=False, 
             last_chat_id=last_chat_id, 
@@ -279,6 +291,7 @@ def analyze_chat_and_generate_map(
         )
     except Exception as e:
         print(f"🚨🚨 최종 Vertex AI API 요청 오류 (예상치 못한 오류): {e}")
+        print(f"🚨🚨 마지막 파싱 시도 텍스트:\n--- LAST ATTEMPT ---\n{json_string}\n--- END ---") 
         return AIAnalysisResult(
             is_success=False, 
             last_chat_id=last_chat_id, 

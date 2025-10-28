@@ -370,13 +370,6 @@ const App = () => {
 
             <h1 className="text-3xl font-bold text-center text-gray-800 mb-6 border-b pb-3">AI 채팅 마인드맵 생성 데모</h1>
             
-            {/* Error/Context Message */}
-            <div className="text-center bg-red-100 p-3 rounded-lg border border-red-300 mb-6 shadow-sm">
-                <p className="text-red-700 font-semibold">
-                    사용자님의 원래 오류: <strong className="text-red-900">'로딩 실패: Not authenticated'</strong>는 백엔드 인증 문제이며,
-                    이 React 앱은 프론트엔드 기능을 시연하기 위한 독립적인 파일입니다.
-                </p>
-            </div>
 
             {/* 메인 레이아웃 (채팅과 마인드맵) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[70vh] min-h-[500px]">
