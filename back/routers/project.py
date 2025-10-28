@@ -284,6 +284,25 @@ def generate_mindmap(
     db: Session = Depends(get_db)
 ):
     """채팅 기록을 기반으로 AI 마인드맵 생성/업데이트 요청"""
+    # 💡 [디버깅 추가] DB 연결 및 ORM 모델 접근 테스트
+    try:
+        # ORM 테스트: 프로젝트 ID {project_id}의 노드가 있는지 확인
+        # ORMDatabaseMindMapNode는 이 파일 상단에서 ORMMindMapNode의 별칭입니다.
+        test_node_count = db.query(ORMDatabaseMindMapNode).filter(
+            ORMDatabaseMindMapNode.project_id == project_id
+        ).count()
+        print(f"✅ DEBUG ROUTER: DB ORM 테스트 성공. Project {project_id}의 노드 개수: {test_node_count}")
+
+    except Exception as e:
+        # 이 예외가 발생하면 DB 설정 문제
+        print(f"🚨🚨🚨 FATAL DB ERROR IN ROUTER (generate_mindmap): {e} 🚨🚨🚨")
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database connection or ORM query failed: {e}"
+        )
+    
+    # ----------------------------------------------------------------------
 
     db_project = db.query(ORMProject).filter(ORMProject.id == project_id).first()
     if not db_project:
@@ -337,11 +356,22 @@ def generate_mindmap(
             db_project.is_generating = False
             db.commit()
         else:
-            # 유효한 데이터가 없는 경우
+            # 💡 [핵심 수정] AI 분석이 성공했으나 (is_success=True), 새로운 노드를 생성할 필요가 없거나 (채팅 없음) 
+            # 마인드맵 데이터를 반환하지 않은 경우입니다.
+            
+            # 🚨 [수정] is_success가 False인 경우에만 400 에러를 발생시키고, 
+            # is_success가 True인 경우는 정상 종료로 간주하여 200 OK를 반환하도록 수정합니다.
+            
             db_project.is_generating = False
             db.commit()
-            raise HTTPException(status_code=400, detail="AI analysis result was empty or failed (is_success=False).")
+
+            if not analysis_result.is_success:
+                # AI 분석 함수에서 실패(예: LLM 오류, 파싱 오류)를 명시적으로 반환한 경우
+                raise HTTPException(status_code=400, detail="AI analysis failed (is_success=False). Check server logs for detail.")
             
+            # 새로운 채팅이 없어서 노드 업데이트를 하지 않은 경우 (analysis_result.nodes=[]), 정상 응답으로 간주합니다.
+            return analysis_result
+                
     except ValidationError as e:
         # Pydantic 스키마(AIAnalysisResult) 파싱 오류 처리
         db.rollback()
