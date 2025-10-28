@@ -30,6 +30,10 @@ class User(BaseModel):
 class UserUpdateStatus(BaseModel):
     timestamp: datetime # 클라이언트가 현재 시간을 보냄
 
+# 🚨 새 스키마: POST /set_online 요청 본문
+class SetOnlineStatusRequest(BaseModel):
+    is_online: bool
+
 
 # 토큰 스키마 (인증 라우터에서 사용)
 class Token(BaseModel):

@@ -178,7 +178,7 @@ const ProfileScreen = () => {
             const payload = field === 'name' ? { name: value } : { email: value };
 
             // Mock PUT 요청 (실제 백엔드 API가 /users/me 라고 가정)
-            const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
+            const response = await fetch(`${API_BASE_URL}/api/v1/user/me`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
