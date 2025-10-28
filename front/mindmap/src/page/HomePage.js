@@ -15,10 +15,10 @@ const USER_API_URL = `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/user/user`;
 // ----------------------------------------------------
 const Header = () => {
     const navigation = useNavigate();
-    const isAuthenticated = localStorage.getItem('access_token');
+    const isAuthenticated = sessionStorage.getItem('access_token');
 
     const handleLogout = () => {
-        localStorage.removeItem('access_token');
+        sessionStorage.removeItem('access_token');
         navigation('/login');
     };
 
@@ -159,7 +159,7 @@ const HomePage = () => {
     
     // 1. 사용자 자신의 온라인 상태를 설정하는 함수
     const setOnlineStatus = useCallback(async (status) => {
-        const token = localStorage.getItem('access_token');
+        const token = sessionStorage.getItem('access_token');
         if (!token) return;
 
         try {
@@ -178,7 +178,7 @@ const HomePage = () => {
     // 2. 친구 목록을 백엔드에서 불러오는 함수
     const fetchFriends = useCallback(async () => {
         setIsOnlineLoading(true);
-        const token = localStorage.getItem('access_token');
+        const token = sessionStorage.getItem('access_token');
         if (!token) {
             setIsOnlineLoading(false);
             return; 
@@ -209,7 +209,7 @@ const HomePage = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const authToken = localStorage.getItem('access_token');
+            const authToken = sessionStorage.getItem('access_token');
             if (!authToken) {
                 setError("로그인 토큰이 없습니다. 로그인해주세요.");
                 return;
@@ -237,7 +237,7 @@ const HomePage = () => {
         }
 
         try {
-            const authToken = localStorage.getItem('access_token');
+            const authToken = sessionStorage.getItem('access_token');
             if (!authToken) {
                 setStatusMessage("인증 토큰이 없습니다. 로그인해주세요.");
                 return;

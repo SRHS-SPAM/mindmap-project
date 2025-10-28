@@ -25,7 +25,7 @@ const MemoPage = () => {
 
     useEffect(() => {
         // 컴포넌트 마운트 시 localStorage에서 토큰을 확인합니다.
-        const token = localStorage.getItem('access_token');
+        const token = sessionStorage.getItem('access_token');
         if (token) {
             setAuthToken(token);
             // 토큰이 있으므로 메모를 로드합니다.

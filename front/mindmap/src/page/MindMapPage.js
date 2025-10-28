@@ -242,7 +242,7 @@ const App = () => {
             for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
                 try {
                     // 💡 1. 저장된 토큰을 가져옵니다. (토큰이 로컬 스토리지에 저장되어 있다고 가정)
-                    const authToken = localStorage.getItem('access_token'); // 또는 쿠키에서 가져옵니다.
+                    const authToken = sessionStorage.getItem('access_token'); // 또는 쿠키에서 가져옵니다.
 
                     // 💡 2. 토큰이 없으면 함수를 종료하거나 오류를 보고합니다.
                     if (!authToken) {

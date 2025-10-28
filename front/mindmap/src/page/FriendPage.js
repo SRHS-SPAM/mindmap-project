@@ -68,7 +68,7 @@ const Friend = () => {
     const fetchFriends = useCallback(async () => {
         setIsLoading(true);
         try {
-            const token = localStorage.getItem('access_token'); 
+            const token = sessionStorage.getItem('access_token'); 
             if (!token) {
                 // 토큰이 없으면 로그인 페이지로 리디렉션하거나 에러 처리
                 console.warn("로그인이 필요합니다.");
@@ -126,7 +126,7 @@ const Friend = () => {
         }
 
         try {
-            const token = localStorage.getItem('access_token'); 
+            const token = sessionStorage.getItem('access_token'); 
             
             const response = await axios.get(
                 `${BASE_URL}/search?friend_code=${code}`,
@@ -161,7 +161,7 @@ const Friend = () => {
         if (!friendCode) return;
 
         try {
-            const token = localStorage.getItem('access_token');
+            const token = sessionStorage.getItem('access_token');
             
             await axios.post(
                 `${BASE_URL}/friends/add`, 
