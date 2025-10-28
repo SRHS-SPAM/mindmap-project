@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios'; 
 import "./HomePage.css"
 
+import { useNavigate } from 'react-router-dom';
+
 // 💡 API 기본 설정
 const BACKEND_BASE_URL = 'http://localhost:8000';
 const API_VERSION_PREFIX = '/api/v1';
@@ -11,12 +13,13 @@ const USER_API_URL = `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/user/user`;
 // ----------------------------------------------------
 // [Component] Header (내부 컴포넌트)
 // ----------------------------------------------------
-const Header = ({ navigate }) => {
+const Header = () => {
+    const navigation = useNavigate();
     const isAuthenticated = localStorage.getItem('access_token');
 
     const handleLogout = () => {
         localStorage.removeItem('access_token');
-        navigate('/login');
+        navigation('/login');
     };
 
     return (
@@ -24,7 +27,7 @@ const Header = ({ navigate }) => {
             <div className="max-w-6xl mx-auto p-4 flex justify-between items-center">
                 <h1 
                     className="text-2xl font-extrabold text-indigo-600 cursor-pointer hover:text-indigo-800 transition"
-                    onClick={() => navigate('/')}
+                    onClick={() => navigation('/main')}
                 >
                     MindMapHub
                 </h1>
@@ -32,7 +35,7 @@ const Header = ({ navigate }) => {
                     {isAuthenticated ? (
                         <>
                             <button 
-                                onClick={() => navigate('/friends')}
+                                onClick={() => navigation('/friends')}
                                 className="text-gray-600 hover:text-indigo-600 font-medium transition"
                             >
                                 친구 관리
@@ -46,7 +49,7 @@ const Header = ({ navigate }) => {
                         </>
                     ) : (
                         <button 
-                            onClick={() => navigate('/login')}
+                            onClick={() => navigation('/login')}
                             className="text-indigo-600 hover:text-indigo-800 font-medium transition"
                         >
                             로그인
@@ -109,13 +112,14 @@ const ProjectCard = ({ project, onClick }) => {
 // ----------------------------------------------------
 // [Page] FriendPage (내부 페이지 - /friends)
 // ----------------------------------------------------
-const FriendPage = ({ navigate }) => {
+const FriendPage = () => {
+    const navigation = useNavigate();
     return (
         <div className="min-h-screen bg-gray-50 pb-10">
-            <Header navigate={navigate} />
+            <Header />
             <div className="max-w-4xl mx-auto mt-8 p-6 bg-white rounded-xl shadow-lg">
                 <button 
-                    onClick={() => navigate('/')} 
+                    onClick={() => navigation('/main')} 
                     className="text-indigo-600 hover:text-indigo-800 font-medium mb-4 flex items-center"
                 >
                     &larr; 홈으로 돌아가기
@@ -135,7 +139,9 @@ const FriendPage = ({ navigate }) => {
 // ----------------------------------------------------
 // [Page] HomePage (내부 페이지 - /)
 // ----------------------------------------------------
-const HomePage = ({ navigate }) => {
+const HomePage = () => {
+    const navigation = useNavigate();
+    
     const [projects, setProjects] = useState([]); 
     const [isLoading, setIsLoading] = useState(true); 
     const [error, setError] = useState(null); 
@@ -253,7 +259,7 @@ const HomePage = ({ navigate }) => {
 
     // 5. 프로젝트 클릭 시 이동
     const handleProjectClick = (projectId) => {
-        navigate(`/mind/${projectId}`);
+        navigation(`/mind/${projectId}`);
     };
 
     // 6. 마운트/언마운트 시 로직
@@ -276,7 +282,7 @@ const HomePage = ({ navigate }) => {
     // --- 렌더링 ---
     return(
         <div className="min-h-screen bg-gray-50 pb-10">
-            <Header navigate={navigate} />
+            <Header />
             <div className="p-6 max-w-6xl mx-auto">
                 <div className='mb-8'>
                     <h1 className='text-4xl font-extrabold text-gray-800 mb-6'>HOME</h1>
@@ -287,7 +293,7 @@ const HomePage = ({ navigate }) => {
                     <h2 className="text-xl font-bold text-indigo-600 mb-4 border-b pb-2 flex justify-between items-center">
                         접속 중인 친구 ({onlineFriends.length})
                         <button 
-                            onClick={() => navigate('/friends')} 
+                            onClick={() => navigation('/friends')} 
                             className='text-sm text-gray-500 hover:text-indigo-700 transition'
                         >
                             전체 친구 목록 보기 &gt;
@@ -374,65 +380,5 @@ const HomePage = ({ navigate }) => {
     );
 }
 
-// ----------------------------------------------------
-// [App] Main Application with Simple Routing
-// ----------------------------------------------------
-const App = () => {
-    // 내부 상태를 이용한 간단한 라우팅
-    const [path, setPath] = useState(window.location.pathname);
 
-    // URL 변경 감지 (history API를 사용하여 페이지 이동을 시뮬레이션)
-    const navigate = useCallback((newPath) => {
-        // 실제 라우터가 없으므로 history API를 사용하여 URL은 변경하고 상태만 업데이트
-        window.history.pushState({}, '', newPath);
-        setPath(newPath);
-    }, []);
-
-    // 브라우저 뒤로가기/앞으로가기 버튼 처리
-    useEffect(() => {
-        const handlePopState = () => setPath(window.location.pathname);
-        window.addEventListener('popstate', handlePopState);
-        return () => window.removeEventListener('popstate', handlePopState);
-    }, []);
-
-    const renderPage = () => {
-        // URL에 따라 페이지 렌더링
-        if (path === '/friends') {
-            return <FriendPage navigate={navigate} />;
-        }
-        
-        // '/mind/{projectId}'와 같은 동적 경로는 일단 HomePage로 대체합니다.
-        if (path.startsWith('/mind/')) {
-             return (
-                <div className="min-h-screen bg-gray-50 p-6">
-                    <Header navigate={navigate} />
-                    <div className="max-w-4xl mx-auto mt-8 p-6 bg-white rounded-xl shadow-lg">
-                        <button 
-                            onClick={() => navigate('/')} 
-                            className="text-indigo-600 hover:text-indigo-800 font-medium mb-4 flex items-center"
-                        >
-                            &larr; 홈으로 돌아가기
-                        </button>
-                        <h1 className="text-3xl font-extrabold text-gray-800 border-b pb-2 mb-6">
-                            마인드맵 프로젝트 {path.substring(6)}
-                        </h1>
-                        <p>여기는 마인드맵 편집 화면입니다.</p>
-                    </div>
-                </div>
-            );
-        }
-        
-        // 기본 경로는 HomePage
-        return <HomePage navigate={navigate} />;
-    };
-
-    return (
-        <div className="font-sans">
-            {/* Tailwind CSS 스크롤바 숨기기 스타일 (선택 사항) */}
-            <style>{`.scrollbar-hide::-webkit-scrollbar { display: none; } .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
-            {renderPage()}
-        </div>
-    );
-};
-
-export default App;
+export default HomePage;
