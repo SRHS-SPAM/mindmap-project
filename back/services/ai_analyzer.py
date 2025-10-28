@@ -15,14 +15,14 @@ from sqlalchemy.orm import Session # 세션 타입 명시
 # 💡 [Vertex AI 설정]
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "minmap-476213") 
 REGION = os.getenv("GCP_REGION", "asia-northeast3") # 서울 리전
-GEMINI_MODEL = "gemini-1.5-pro"
+# 🚨 [수정] gemini-1.5-pro 대신 광범위하게 사용 가능한 모델로 변경합니다.
+GEMINI_MODEL = "gemini-2.5-flash"
 
 # 💡 [Vertex AI Client 초기화]
 try:
     vertexai.init(project=PROJECT_ID, location=REGION)
-    
     # GenerativeModel 인스턴스 생성
-    MODEL_CLIENT = GenerativeModel(model_name=GEMINI_MODEL)
+    MODEL_CLIENT = GenerativeModel(model_name=GEMINI_MODEL) # ⬅️ 이제 gemini-2.5-flash를 사용합니다.
     CLIENT = "Ready" 
     print(f"✅ Vertex AI 모델 초기화 성공! (Model: {GEMINI_MODEL}, Project: {PROJECT_ID}, Region: {REGION})")
 except Exception as e:
@@ -103,6 +103,7 @@ def recommend_map_improvements(map_data: Dict[str, Any], chat_history: List[Chat
             )
         )
         return response.text
+
         
     except Exception as e:
         print(f"Vertex AI 추천 API 요청 오류: {e}")
@@ -119,6 +120,22 @@ def analyze_chat_and_generate_map(
     """
     채팅 기록을 분석하여 Vertex AI를 통해 마인드맵 구조를 생성하고 반환합니다.
     """
+    # # 💡 [임시 디버깅 코드 시작] 
+    # try:
+    #     if CLIENT:
+    #         # 아주 간단한 API 호출을 시도합니다.
+    #         test_response = MODEL_CLIENT.generate_content(
+    #             contents=["Hello, Gemini. What is the capital of France?"],
+    #             generation_config=GenerationConfig(max_output_tokens=10)
+    #         )
+    #         print(f"✅ DEBUG: Basic API Call Success. Response: {test_response.text}")
+    #     else:
+    #         print("❌ DEBUG: CLIENT is None.")
+    # except Exception as e:
+    #     # 이 에러가 서버 로그에 출력되어야 합니다.
+    #     print(f"🚨🚨🚨 DEBUG FATAL API ERROR DURING SIMPLE TEST: {e} 🚨🚨🚨")
+    # # 💡 [임시 디버깅 코드 끝]
+    
     # 1. 새로 분석할 채팅 기록 필터링
     new_chat_history = [chat for chat in chat_history if chat.id > (last_processed_chat_id or 0)]
 
@@ -149,12 +166,18 @@ def analyze_chat_and_generate_map(
 당신은 사용자들의 대화를 분석하여 구조화된 마인드맵(MindMap) 데이터로 변환하는 전문 AI입니다.
 기존 마인드맵 정보가 있다면 새로운 대화 내용을 추가, 수정, 또는 삭제하여 마인드맵을 업데이트해야 합니다.
 
+**🚨 [강조] 당신의 유일한 임무는 요청된 JSON 스키마를 완벽히 준수하는 것입니다. JSON 마크다운 블록(```json)이나 다른 설명 텍스트를 JSON 앞뒤에 절대 포함하지 마세요.**
+
+**마인드맵 계층 구조:**
+# ... (기존 설명 유지)
+
 **마인드맵 계층 구조:**
 1. '핵심 주제' (core): 대화의 가장 중심적인 목표 또는 주제 (최대 3개)
 2. '대주제' (major): 핵심 주제를 이루는 주요 구성 요소 또는 단계 (최대 10개)
 3. '소주제' (minor): 대주제를 상세화하는 세부 항목 또는 아이디어 (최대 30개)
 
 **제약 조건:**
+- 응답은 반드시 유효한 JSON 형식이어야 하며, 다른 텍스트는 포함하지 마세요.
 - 노드 ID는 고유한 문자열(예: 'core-A', 'major-1', 'minor-1-a')이어야 합니다.
 - connections 필드는 노드 간의 관계를 나타내며, 반드시 존재하는 노드의 ID를 가리켜야 합니다.
 - 응답은 반드시 유효한 JSON 형식이어야 하며, 다른 텍스트는 포함하지 마세요.
@@ -201,7 +224,7 @@ def analyze_chat_and_generate_map(
     try:
         response = MODEL_CLIENT.generate_content(
             contents=[prompt],
-            config=GenerationConfig( # Vertex AI에서는 GenerationConfig를 사용
+            generation_config=GenerationConfig( # Vertex AI에서는 GenerationConfig를 사용
                 temperature=0.7,
                 # 💡 [수정] response_mime_type 대신 response_schema 사용 (JSON 강제)
                 response_mime_type="application/json",
@@ -209,6 +232,9 @@ def analyze_chat_and_generate_map(
                 max_output_tokens=4096 # 마인드맵 노드가 많을 수 있으므로 토큰을 넉넉하게
             )
         )
+
+        if response.candidates and response.candidates[0].finish_reason.name == 'MAX_TOKENS':
+            print("⚠️ 경고: 마인드맵 생성이 최대 토큰 한계로 인해 조기 종료되었습니다. 프롬프트를 줄이거나 max_output_tokens를 늘리세요.")
         
         # 응답 텍스트를 파싱
         json_string = response.text
@@ -241,15 +267,18 @@ def analyze_chat_and_generate_map(
         )
 
     except (json.JSONDecodeError, KeyError, ValueError) as e:
-        print(f"Vertex AI 응답 파싱 또는 유효성 검사 오류: {e}")
-        print(f"받은 응답: {response.text if 'response' in locals() else 'N/A'}")
+        print(f"🚨 Vertex AI 응답 파싱 또는 유효성 검사 오류: {e}")
+        # 💡 [수정]: 응답 텍스트를 반드시 출력하여 JSON이 깨진 이유를 확인합니다.
+        # response 변수가 지역 변수로 선언되어 있을 때만 접근 가능하도록 처리
+        response_text = response.text if 'response' in locals() and hasattr(response, 'text') else "N/A"
+        print(f"🚨🚨 받은 응답 (JSON 파싱 실패): \n{response_text}") 
         return AIAnalysisResult(
             is_success=False, 
             last_chat_id=last_chat_id, 
             mind_map_data=MindMapData(nodes=[], links=[])
         )
     except Exception as e:
-        print(f"Vertex AI API 요청 오류: {e}")
+        print(f"🚨🚨 최종 Vertex AI API 요청 오류 (예상치 못한 오류): {e}")
         return AIAnalysisResult(
             is_success=False, 
             last_chat_id=last_chat_id, 
