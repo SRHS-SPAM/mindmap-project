@@ -49,7 +49,9 @@ class MindMapNodeOutput(BaseModel):
     id: str = Field(..., description="고유한 노드 ID (예: 'core-1')")
     node_type: str = Field(..., description="노드의 계층 레벨 ('core', 'major', 'minor' 중 하나)")
     title: str = Field(..., description="노드의 핵심 제목")
-    description: Optional[str] = Field(None, description="노드의 상세 내용")
+    # 💡 [핵심 수정] Optional[str]을 제거하고, 기본값을 None으로 설정하여 Pydantic 스키마가 
+    # '문자열 또는 Null' 대신 '기본값이 Null인 문자열'로 변환되도록 유도합니다.
+    description: str = Field(None, description="노드의 상세 내용") 
     connections: List[Dict[str, str]] = Field(default_factory=list, description="연결 정보")
 
 class MindMapDataOutput(BaseModel):
@@ -225,14 +227,29 @@ def analyze_chat_and_generate_map(
         )
 
     try:
+        json_schema_dict = MindMapDataOutput.model_json_schema(
+            by_alias=True, 
+            # 💡 [핵심 수정] ref_template을 '#/defs/{model}'로 변경하여 
+            # Pydantic이 생성하는 $ref 참조 경로를 Vertex AI가 기대하는 경로와 일치시킵니다.
+            ref_template="#/defs/{model}" 
+        )
+        
+        # 💡 [재확인] Vertex AI는 'definitions' 대신 'defs' 키를 기대합니다.
+        # Pydantic이 ref_template을 '#/defs'로 설정했으므로, 
+        # 이제 root 스키마의 정의 키도 'defs'로 변경합니다. (이전 단계에서 했던 로직 재활용)
+        if 'definitions' in json_schema_dict:
+            json_schema_dict['defs'] = json_schema_dict.pop('definitions')
+        # 만약 'definitions'이 없다면, Pydantic v2는 이미 'defs'를 사용하고 있을 수 있으나, 
+        # 안전을 위해 키를 명시적으로 확인합니다.
+
+
         response = MODEL_CLIENT.generate_content(
             contents=[prompt],
-            generation_config=GenerationConfig( # Vertex AI에서는 GenerationConfig를 사용
+            generation_config=GenerationConfig(
                 temperature=0.7,
-                # 💡 [수정] response_mime_type 대신 response_schema 사용 (JSON 강제)
                 response_mime_type="application/json",
-                response_schema=MindMapDataOutput, # Pydantic 클래스 자체를 전달 (JSON 모드 활성화)
-                max_output_tokens=4096 # 마인드맵 노드가 많을 수 있으므로 토큰을 넉넉하게
+                response_schema=json_schema_dict, # ⬅️ JSON 스키마 딕셔너리 전달
+                max_output_tokens=4096
             )
         )
 
