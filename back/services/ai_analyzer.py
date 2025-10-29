@@ -139,17 +139,18 @@ def analyze_chat_and_generate_map(
     # 1. 새로 분석할 채팅 기록 필터링
     new_chat_history = [chat for chat in chat_history if chat.id > (last_processed_chat_id or 0)]
 
-    if not new_chat_history:
-        print("새로 분석할 채팅이 없습니다.")
-        return AIAnalysisResult(
-            is_success=True,
-            last_chat_id=last_processed_chat_id,
-            mind_map_data=MindMapData(nodes=[], links=[]) 
-        )
+    # if not new_chat_history:
+    #     print("새로 분석할 채팅이 없습니다.")
+    #     return AIAnalysisResult(
+    #         is_success=True,
+    #         last_chat_id=last_processed_chat_id,
+    #         mind_map_data=MindMapData(nodes=[], links=[]) 
+    #     )
 
-    # 2. 신규 채팅 내용을 텍스트로 조합
-    new_chat_text = "\n".join([f"[{chat.user_id}] {chat.content}" for chat in new_chat_history])
-    last_chat_id = new_chat_history[-1].id
+    # 새로운 채팅이 없어도 전체 채팅 기록을 사용하여 LLM을 호출하도록 new_chat_text를 구성합니다.
+    # 💡 [수정] new_chat_text를 전체 chat_history로 구성 (강제 호출 목적)
+    new_chat_text = "\n".join([f"[{chat.user_id}] {chat.content}" for chat in chat_history])
+    last_chat_id = chat_history[-1].id if chat_history else (last_processed_chat_id or 0)
 
     # 3. 기존 마인드맵 정보 로드
     existing_nodes = db_session.query(ORMMindMapNode).filter(

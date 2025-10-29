@@ -319,13 +319,15 @@ def generate_mindmap(
     chat_history = db.query(ORMChatMessage).filter(ORMChatMessage.project_id == project_id).order_by(ORMChatMessage.id).all()
     
     try:
-        last_processed_id = db_project.last_chat_id_processed or 0
+        # last_processed_id = db_project.last_chat_id_processed or 0
         
+        last_processed_id = 0 
+    
         # 💡 analyze_chat_and_generate_map 호출 (DB 세션 전달)
         analysis_result: AIAnalysisResult = analyze_chat_and_generate_map(
             project_id=project_id,
             chat_history=chat_history,
-            last_processed_chat_id=last_processed_id,
+            last_processed_chat_id=last_processed_id, # ⬅️ 이제 0이 전달됨
             db_session=db
         )
         
