@@ -118,7 +118,7 @@ const App = () => {
             console.log("Request Body (JSON):", requestBody);
 
 
-            const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+            const response = await fetch(`${API_BASE_URL}/api/v1/login`, {
                 method: 'POST',
                 // ⚠️ Content-Type을 'application/json'으로 설정합니다.
                 headers: {

@@ -14,7 +14,7 @@ from ..schemas import (
     FriendAction,
     SetOnlineStatusRequest # 🚨 새로 임포트됨
 )
-from ..security import get_current_active_user
+from ..dependencies import get_current_active_user
 
 router = APIRouter(prefix="/user", tags=["user"])
 

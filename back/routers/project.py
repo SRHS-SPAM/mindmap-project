@@ -22,7 +22,7 @@ from ..schemas import (
     ProjectUpdate,
     ORMMindMapNode # Pydantic response model alias 임포트 (schemas.py에서 정의됨)
 )
-from ..security import get_current_active_user
+from ..dependencies import get_current_active_user
 # 💡 [가정] services.ai_analyzer 모듈 임포트
 from ..services.ai_analyzer import analyze_chat_and_generate_map, recommend_map_improvements
 from typing import List, Optional

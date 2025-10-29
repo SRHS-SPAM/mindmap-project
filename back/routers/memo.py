@@ -7,7 +7,7 @@ from ..database import get_db
 # ORM 모델은 DBMemo로 별칭을 지정하여 Pydantic 스키마 (Memo)와 충돌을 명확하게 방지합니다.
 from ..models import Memo as DBMemo, User
 from ..schemas import Memo, MemoCreate, MemoBase # Pydantic 스키마
-from ..security import get_current_active_user
+from ..dependencies import get_current_active_user
 
 router = APIRouter(
     # prefix="/memo",  # main.py에서 이미 "/api/v1/memo"로 설정되므로 제거했습니다.
