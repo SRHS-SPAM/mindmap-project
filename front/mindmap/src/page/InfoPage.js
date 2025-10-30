@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // useNavigate hook을 사용합니다.
 import { useNavigate } from 'react-router-dom';
+import './InfoPage.css';
 
 // NOTE: 외부 CSS 파일은 단일 파일 원칙을 위해 <style> 태그로 대체합니다.
 // TODO: 실제 FastAPI 백엔드 주소로 변경하세요. (로컬 환경 개발을 위해 유지)

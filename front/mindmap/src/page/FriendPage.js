@@ -250,10 +250,10 @@ const Friend = () => {
             <Header />
             <div className="info max-w-4xl mx-auto p-4 md:p-8">
                 <div className='text_wrap_f mb-8'>
-                    <h1 className='main_text_f text-4xl font-extrabold text-gray-800 mb-4'>친구 (Friend)</h1>
+                    <h1 className='main_text_f text-4xl font-extrabold text-gray-800 mb-5'>친구 (Friend)</h1>
                     
                     {/* 검색창 영역 */}
-                    <div className='search_input_wrap flex items-center bg-white rounded-xl shadow-lg p-3'>
+                    <div className='search_input_wrap flex items-center bg-white rounded-xl shadow-lg p-3 mt-4'>
                         <input 
                             type="text"
                             placeholder="친구 코드로 검색 (예: A1B2C3D)"

@@ -230,7 +230,7 @@ const MemoPage = () => {
 
                 <div className="memo_wrap">
                     {memos.length === 0 ? (
-                        <p>작성된 메모가 없습니다. 위의 버튼을 눌러 메모를 추가하세요.</p>
+                        <p className="text-2xl text-white mt-5">작성된 메모가 없습니다. 위의 버튼을 눌러 메모를 추가하세요.</p>
                     ) : (
                         memos.map((memo) => (
                             <div 
