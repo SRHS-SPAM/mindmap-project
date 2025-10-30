@@ -205,9 +205,12 @@ def delete_project(
 
 # --- 채팅 기능 ---
 @router.post("/{project_id}/chat", response_model=ChatMessageSchema, status_code=status.HTTP_201_CREATED)
-def post_chat_message(
+def post_chat_message( # 함수 이름 명확화 (generate_mindmap과의 충돌 방지)
     project_id: int,
-    message: ChatMessageCreate,
+    # 💡 Pydantic 스키마를 인수로 받도록 명확히 정의
+    message_data: ChatMessageCreate, 
+    # 💡 403 권한 검사를 Depends에 위임
+    member: ORMProjectMember = Depends(verify_project_member_dependency), 
     current_user: ORMUser = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -242,8 +245,9 @@ def post_chat_message(
     # 3. 채팅 메시지 저장
     db_message = ORMChatMessage(
         project_id=project_id,
-        user_id=user_id,
-        content=message.content
+        user_id=current_user.id, # current_user에서 user_id 가져옴
+        # 💡 Pydantic 객체(message_data)에서 content를 가져와야 합니다.
+        content=message_data.content 
     )
     db.add(db_message)
     
@@ -317,11 +321,20 @@ def generate_mindmap(
     db.commit()
         
     chat_history = db.query(ORMChatMessage).filter(ORMChatMessage.project_id == project_id).order_by(ORMChatMessage.id).all()
+
+    # 🚨🚨🚨 디버깅 코드 추가 (필수) 🚨🚨🚨
+    print("-----------------------------------------")
+    print(f"✅✅ [DEBUG ROUTER] Project ID: {project_id}")
+    print(f"🚨🚨 [ROUTER LOG] chat_history length BEFORE AI call: {len(chat_history)}")
+    if len(chat_history) > 0:
+        print(f"🚨🚨 [ROUTER LOG] First Chat ID: {chat_history[0].id}, Content: {chat_history[0].content[:20]}...")
+    print("-----------------------------------------")
+    # 🚨🚨🚨 디버깅 코드 끝 🚨🚨🚨
     
     try:
-        # last_processed_id = db_project.last_chat_id_processed or 0
+        last_processed_id = db_project.last_chat_id_processed or 0
         
-        last_processed_id = 0 
+        # last_processed_id = 0 
     
         # 💡 analyze_chat_and_generate_map 호출 (DB 세션 전달)
         analysis_result: AIAnalysisResult = analyze_chat_and_generate_map(
@@ -357,6 +370,13 @@ def generate_mindmap(
             db_project.last_chat_id_processed = analysis_result.last_chat_id
             db_project.is_generating = False
             db.commit()
+
+            # [수정] 아래 줄에 디버깅 코드 추가
+            chat_history = db.query(ORMChatMessage).filter(ORMChatMessage.project_id == project_id).order_by(ORMChatMessage.id).all()
+
+            # 🚨🚨🚨 디버깅 코드 추가 🚨🚨🚨
+            print(f"🚨🚨 [ROUTER LOG] chat_history length before AI call: {len(chat_history)}")
+            # 🚨🚨🚨 디버깅 코드 끝 🚨🚨🚨
         else:
             # 💡 [핵심 수정] AI 분석이 성공했으나 (is_success=True), 새로운 노드를 생성할 필요가 없거나 (채팅 없음) 
             # 마인드맵 데이터를 반환하지 않은 경우입니다.

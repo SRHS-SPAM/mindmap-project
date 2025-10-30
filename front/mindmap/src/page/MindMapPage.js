@@ -84,17 +84,19 @@ const ChatMessage = ({ role, text }) => {
 
 // --- Mind Map Rendering Component (마인드맵 구조 렌더링) ---
 const MindMapOutput = ({ mindMapData, errorMessage }) => {
-    if (errorMessage) {
-        // API 오류 발생 시 메시지 표시
-        return (
-            <div className="text-red-500 p-4 bg-red-100 rounded-lg">
-                <strong>오류 발생:</strong> 마인드맵 생성에 실패했습니다. (콘솔 확인)
-                <p className="mt-2 text-sm text-red-700">API 설정 또는 응답 처리 중 문제가 발생했습니다. 시뮬레이션 데이터가 표시됩니다.</p>
-            </div>
-        );
-    }
-    
-    if (!mindMapData) {
+
+    // 💡 [핵심] mindMapData가 없거나 branches가 배열이 아니면 에러/초기 메시지를 표시합니다.
+    if (!mindMapData || !Array.isArray(mindMapData.branches)) {
+        if (errorMessage) {
+            // API 오류 발생 시 메시지 표시
+            return (
+                <div className="text-red-500 p-4 bg-red-100 rounded-lg">
+                    <strong>오류 발생:</strong> 마인드맵 생성에 실패했습니다. (콘솔 확인)
+                    <p className="mt-2 text-sm text-red-700">API 설정 또는 응답 처리 중 문제가 발생했습니다.</p>
+                </div>
+            );
+        }
+        
         // 초기 상태 메시지
         return (
             <div className="text-center text-gray-500 py-10">
@@ -106,7 +108,8 @@ const MindMapOutput = ({ mindMapData, errorMessage }) => {
     const { mainTopic, branches } = mindMapData;
 
     // 마인드맵 가지(Branch)와 세부 사항(Details)을 JSX로 변환
-    const MindMapList = branches.map((branch, index) => {
+    const MindMapList = branches.map((branch, index) => { // branches는 이제 확실히 배열입니다.
+        // 💡 [확인] details도 배열임을 보장하기 위해 방어 코드 추가
         const detailHtml = (branch.details || []).map((detail, detailIndex) => 
             <li key={detailIndex} className="detail-item text-sm mt-1">{detail}</li>
         );
@@ -153,7 +156,11 @@ const App = () => {
         { role: 'model', text: "안녕하세요! 마인드맵으로 만들고 싶은 주제에 대해 대화해보세요. 대화 후 '마인드맵 생성' 버튼을 눌러주세요." }
     ]);
     const [chatInput, setChatInput] = useState('');
-    const [mindMapData, setMindMapData] = useState(null);
+    // 💡 [재수정] 초기값을 MindMapOutput에서 사용하는 { mainTopic, branches } 구조로 명확히 설정
+    const [mindMapData, setMindMapData] = useState({ 
+        mainTopic: '대화를 시작하세요', // 초기 주제
+        branches: [] // branches는 항상 배열이어야 합니다.
+    });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
 
@@ -163,15 +170,81 @@ const App = () => {
     // 프로젝트 ID를 상수로 정의하거나, 숫자로 변환합니다.
     // URL 파라미터는 문자열이므로 숫자로 변환합니다 (NaN 방지).
     const PROJECT_ID = parseInt(routeProjectId, 10);
+
+    // 💡 [추가] 사용자 정보를 위한 State
+    const [currentUser, setCurrentUser] = useState(null);
     
     // 💡 [수정] BACKEND_GENERATE_URL을 컴포넌트 내에서 PROJECT_ID를 사용해 동적으로 정의합니다.
     // projectId가 유효하지 않으면 요청을 보내지 않도록 합니다.
     const BACKEND_GENERATE_URL = PROJECT_ID && !isNaN(PROJECT_ID)
         ? `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/projects/${PROJECT_ID}/generate`
         : null;
+
+    // 💡 API 기본 URL 정의 (InfoPage.js와 통일)
+    const API_BASE_URL = BACKEND_BASE_URL; // http://localhost:8000
     
     // Ref: 채팅 로그 자동 스크롤을 위한 참조
     const chatLogRef = React.useRef(null);
+
+    // --- 💡 [새로운 로직] 사용자 정보 로드 함수 ---
+    const fetchCurrentUser = useCallback(async () => {
+        const token = sessionStorage.getItem('access_token');
+        if (!token) return; // 토큰 없으면 로드 시도 안 함
+
+        try {
+            const response = await fetch(`${API_BASE_URL}${API_VERSION_PREFIX}/auth/me`, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const userData = await response.json();
+                setCurrentUser(userData); // { id: 0, email: "...", name: "..." }
+            } else {
+                console.error("사용자 정보 로드 실패:", response.status);
+                // 토큰이 유효하지 않으면 로그아웃 처리 유도 (선택 사항)
+            }
+        } catch (error) {
+            console.error("Fetch Error (User Profile):", error);
+        }
+    }, [API_BASE_URL, API_VERSION_PREFIX]); 
+
+
+
+    // --- 💡 [새로운 로직] 채팅 기록 로드 함수 ---
+    const getChatHistory = useCallback(async (userId) => {
+        if (!PROJECT_ID || isNaN(PROJECT_ID) || !userId) return;
+        
+        const authToken = sessionStorage.getItem('access_token');
+        if (!authToken) return;
+
+        try {
+            const historyURL = `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/projects/${PROJECT_ID}/chat`;
+            const response = await fetch(historyURL, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            
+            if (response.ok) {
+                const chats = await response.json();
+                
+                const formattedChats = chats.map(chat => ({ 
+                    // DB chat 객체의 user_id와 현재 로그인 유저의 id 비교
+                    role: chat.user_id === userId ? 'user' : 'model', 
+                    text: chat.content,
+                    user_id: chat.user_id // 필요하다면 저장
+                }));
+                
+                // 💡 DB에서 불러온 기록이 있으면 초기화 메시지를 제외하고 덮어씁니다.
+                if (formattedChats.length > 0) {
+                   setChatHistory(formattedChats);
+                }
+            } else {
+                 console.error("채팅 기록 로드 실패", response.status);
+            }
+        } catch (e) {
+            console.error("채팅 기록 로드 중 네트워크 오류", e);
+        }
+    }, [PROJECT_ID, BACKEND_BASE_URL, API_VERSION_PREFIX]);
 
     // Effect: 채팅 내역이 업데이트될 때마다 자동으로 스크롤
     useEffect(() => {
@@ -181,137 +254,184 @@ const App = () => {
     }, [chatHistory]);
 
 
-    // AI 응답 시뮬레이션 (마인드맵 생성을 위한 대화 축적 목적)
-    const simulateAiResponse = useCallback(() => {
-        let aiResponseText;
-        
-        if (chatHistory.length === 1) {
-            aiResponseText = "안녕하세요! 마인드맵으로 만들고 싶은 주제에 대해 편하게 이야기해주세요. 제가 핵심 내용을 정리해 드리겠습니다.";
-        } else if (chatHistory.length % 4 === 0) {
-            aiResponseText = "좋은 아이디어네요. 혹시 그 부분에 대해 더 구체적인 예시나 세부 사항이 있으신가요?";
-        } else {
-            aiResponseText = "네, 알겠습니다. 계속해서 내용을 말씀해주세요.";
+    // Effect 2: 💡 [추가] 컴포넌트 마운트 시 사용자 정보 로드
+    useEffect(() => {
+        fetchCurrentUser();
+    }, [fetchCurrentUser]);
+    
+
+    // Effect 3: 💡 [추가] 사용자 정보 로드 완료 시 채팅 기록 로드
+    useEffect(() => {
+        if (currentUser) {
+            // 사용자 ID를 getChatHistory에 전달
+            getChatHistory(currentUser.id);
         }
+    }, [currentUser, getChatHistory]);
 
-        setTimeout(() => {
-            setChatHistory(prev => [...prev, { role: 'model', text: aiResponseText }]);
-        }, 500);
-    }, [chatHistory.length]);
 
-    // 메시지 전송 로직
-    const sendMessage = useCallback((e) => {
-        e.preventDefault(); // 폼 제출 기본 동작 방지
+    // 메시지 전송 로직 수정
+    // 메시지 전송 로직 수정 (자동 AI 응답 제거)
+    const sendMessage = useCallback(async (e) => {
+        e.preventDefault();
         const text = chatInput.trim();
-        if (text === '') return;
+        if (text === '' || !currentUser || !PROJECT_ID) return;
 
-        // 1. 사용자 메시지 기록
-        setChatHistory(prev => [...prev, { role: 'user', text }]);
-
-        // 2. AI 응답 시뮬레이션 요청
-        simulateAiResponse();
+        const authToken = sessionStorage.getItem('access_token');
+        if (!authToken) {
+            console.error("인증 토큰이 없습니다.");
+            return; 
+        }
         
-        setChatInput(''); // 입력 필드 초기화
-    }, [chatInput, simulateAiResponse]);
+        setChatInput(''); // 입력 필드 즉시 초기화
+        
+        // 💡 [핵심] 백엔드 POST /chat 엔드포인트 호출
+        try {
+            const chatURL = `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/projects/${PROJECT_ID}/chat`;
+            const response = await fetch(chatURL, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}` 
+                },
+                body: JSON.stringify({ content: text }) 
+            });
 
+            if (response.ok) {
+                const savedMessage = await response.json();
+                
+                // 1. DB 저장 성공 후, UI에 반영 (사용자 메시지)
+                setChatHistory(prev => [...prev, { 
+                    role: 'user', 
+                    text: savedMessage.content,
+                    user_id: savedMessage.user_id 
+                }]); 
+                
+                // 2. 🚨 [제거 완료] 이전에 있던 자동 AI 응답 호출 로직이 없습니다. (요청 완료)
+                
+            } else {
+                console.error('채팅 메시지 저장 실패:', response.status, await response.text());
+            }
+
+        } catch (error) {
+            console.error('네트워크 오류:', error);
+        }
+        
+    }, [chatInput, PROJECT_ID, currentUser, BACKEND_BASE_URL, API_VERSION_PREFIX]);
 
     // 마인드맵 생성 로직 (Gemini API 호출)
     const generateMindMap = useCallback(async () => {
-        if (!BACKEND_GENERATE_URL || chatHistory.length < 2) { // 💡 [추가] URL 유효성 검사
+        if (!BACKEND_GENERATE_URL || chatHistory.length < 2) { 
             console.error('유효하지 않은 프로젝트 ID 또는 대화 내용 부족.');
             setError("프로젝트 ID가 유효하지 않거나 대화 내용이 부족합니다.");
             return;
         }
 
-        // UI 상태 변경: 로딩 시작
         setIsLoading(true);
-        setMindMapData(null);
+        setMindMapData({ mainTopic: '', branches: [] }); 
         setError(null);
         
-        // 💡 백엔드 Fast API 엔드포인트는 project_id만 필요하고, 
-        // 채팅 내역은 백엔드가 DB에서 직접 가져오도록 설계되어 있습니다.
-        // 따라서, payload는 빈 객체이거나, 필요한 경우 project_id만 포함하면 됩니다.
-        // (현재 project_id는 URL에 포함되어 있음)
-
         try {
-            let response;
             let parsedResult = null;
-            let errorMessage = null;
-
-            const MAX_RETRIES = 1; // 재시도는 백엔드에서 처리하도록 맡기는 것이 좋습니다.
-
-            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-                try {
-                    // 💡 1. 저장된 토큰을 가져옵니다. (토큰이 로컬 스토리지에 저장되어 있다고 가정)
-                    const authToken = sessionStorage.getItem('access_token'); // 또는 쿠키에서 가져옵니다.
-
-                    // 💡 2. 토큰이 없으면 함수를 종료하거나 오류를 보고합니다.
-                    if (!authToken) {
-                        console.error("인증 토큰이 없습니다. 로그인 상태를 확인하세요.");
-                        return; // 요청을 보내지 않음
-                    }
-
-                    // 💡 [수정됨] 백엔드 API 호출로 변경!
-                    response = await fetch(BACKEND_GENERATE_URL, {
-                        method: 'POST',
-                        // JWT 토큰 등을 'Authorization' 헤더에 포함시켜야 할 수 있습니다. (로그인 구현 시)
-                        headers: {
-                            'Content-Type': 'application/json',
-                            // 💡 [핵심 추가] Authorization 헤더에 Bearer 토큰을 추가합니다.
-                            'Authorization': `Bearer ${authToken}` 
-                        },
-                        // Fast API generate 엔드포인트는 body가 필요 없거나 project_id를 URL에 사용합니다.
-                        // body: JSON.stringify({}), // 요청 본문은 비워두거나 필요에 따라 조정
-                    });
-
-                    if (response.ok) {
-                        // 백엔드에서 온 JSON 응답을 바로 파싱
-                        const result = await response.json(); 
-                        
-                        // 💡 [가정] 백엔드의 응답 스키마(AIAnalysisResult)에 
-                        // 마인드맵 데이터가 `mindmap_data` 필드에 포함되어 있다고 가정합니다.
-                        if (result.is_success && result.mindmap_data) {
-                            parsedResult = result.mindmap_data;
-                            break; // 성공
-                        } else {
-                            throw new Error(`백엔드 분석 실패: ${result.message || 'AI 분석 결과가 유효하지 않습니다.'}`);
-                        }
-                    } else {
-                        // 4xx/5xx 에러 처리
-                        const errorDetail = await response.json().catch(() => ({ detail: '응답 본문 파싱 실패' }));
-                        throw new Error(`API 요청 실패: ${response.status} (${response.statusText}). 상세: ${errorDetail.detail}`);
-                    }
-                } catch (error) {
-                    errorMessage = error.message;
-                    console.error(`Attempt ${attempt + 1} failed:`, error);
-                }
+            const authToken = sessionStorage.getItem('access_token');
+            if (!authToken) {
+                throw new Error("인증 토큰이 없습니다. 로그인 상태를 확인하세요.");
             }
-            
-            // 최종 결과 처리
-            if (parsedResult) {
-                // 💡 [수정됨] 백엔드에서 받은 실제 마인드맵 데이터로 업데이트
-                setMindMapData(parsedResult); 
+
+            // 💡 1. 백엔드 API 호출
+            const response = await fetch(BACKEND_GENERATE_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}` 
+                },
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API 호출 실패: HTTP ${response.status} - ${errorText.substring(0, 50)}...`);
+            }
+
+            const result = await response.json(); 
+            console.log('🔍 백엔드 응답 전체:', result);
+
+            // 💡 2. 백엔드 응답이 성공인지 먼저 확인
+            if (!result.is_success) {
+                throw new Error(`백엔드 분석 실패: ${result.message || 'AI 분석 실패'}`);
+            }
+
+            // 💡 3. mindmap_data 추출
+            let mindmapData = null;
+            if (result.mind_map_data) {
+                mindmapData = result.mind_map_data;
+            } else if (result.mindmap_data) { // 백엔드 키 이름 변형 대응
+                mindmapData = result.mindmap_data;
+            }
+
+            if (!mindmapData || !mindmapData.nodes) {
+                console.error('❌ nodes가 응답에 없습니다:', result);
+                throw new Error('백엔드 분석 실패: nodes가 응답에 없습니다.');
+            }
+
+            const nodes = mindmapData.nodes;
+
+            // 💡 4. links가 없으면 connections에서 생성
+            let links = mindmapData.links || [];
+            if (links.length === 0 && nodes) {
+                nodes.forEach(node => {
+                    if (node.connections && Array.isArray(node.connections)) {
+                        node.connections.forEach(conn => {
+                            links.push({
+                                source: node.id,
+                                target: conn.target_id
+                            });
+                        });
+                    }
+                });
+                console.log('✅ connections에서 links 생성:', links.length, '개');
+            }
+
+            // 💡 5. 마인드맵 구조 변환
+            const mainTopicNode = nodes.find(node => node.node_type === 'core');
+            const majorNodes = nodes.filter(node => node.node_type === 'major');
+
+            const transformedBranches = majorNodes.map(majorNode => {
+                const minorLinks = links.filter(link => link.source === majorNode.id);
+                const details = minorLinks.map(link => {
+                    const minorNode = nodes.find(node => node.id === link.target);
+                    return minorNode ? minorNode.title : "세부 내용 없음";
+                });
+
+                return {
+                    topic: majorNode.title,
+                    details: details
+                };
+            });
+
+            const transformedData = {
+                mainTopic: mainTopicNode ? mainTopicNode.title : "주제 추출 실패",
+                branches: transformedBranches
+            };
+
+            // 💡 6. 최종 검증 및 업데이트
+            if (transformedData.branches.length > 0) {
+                parsedResult = transformedData;
+                setMindMapData(parsedResult);
             } else {
-                // 실패 시 대체 데이터 처리 유지 (디버깅 용)
-                console.warn("백엔드 호출 실패 또는 결과 없음. 시뮬레이션 데이터로 대체합니다.");
-                const conversationText = chatHistory.map(msg => msg.text).join(' ');
-                setMindMapData(generateFallbackMindMap(conversationText));
-                if (errorMessage) {
-                    setError(errorMessage);
-                }
+                throw new Error('마인드맵 구조(가지)를 생성하지 못했습니다.');
             }
+
         } catch (err) {
-            console.error('마인드맵 생성 중 심각한 오류 발생:', err);
-            setError("마인드맵 생성 중 알 수 없는 오류가 발생했습니다.");
+            console.error('마인드맵 생성 중 오류 발생:', err);
+            setError(err.message);
             
-            // 최종 실패 시에도 대체 데이터 렌더링
+            // 오류 발생 시 대체 데이터
             const conversationText = chatHistory.map(msg => msg.text).join(' ');
             setMindMapData(generateFallbackMindMap(conversationText));
 
         } finally {
-            // UI 상태 복원: 로딩 종료
             setIsLoading(false);
         }
-    },[chatHistory, BACKEND_GENERATE_URL]);
+    }, [chatHistory, BACKEND_GENERATE_URL]);
 
 
     return (
@@ -449,5 +569,6 @@ const App = () => {
         </div>
     );
 };
+
 
 export default App;
