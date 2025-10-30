@@ -9,22 +9,52 @@ const BASE_URL = 'http://localhost:8000/api/v1/user/user';
 
 
 // 1. 친구 목록에 표시될 개별 항목 컴포넌트
+// Friend.js 파일 내
+
+// 1. 친구 목록에 표시될 개별 항목 컴포넌트
 const FriendListItem = ({ friend }) => {
-    // friend 객체는 백엔드에서 받은 사용자 정보(name, friend_code 등)를 포함합니다.
+    // 백엔드에서 받은 URL을 사용하거나, 없으면 빈 문자열을 사용
+    const imageUrl = friend.profile_image_url; 
+    const initial = friend.name ? friend.name[0] : '👤';
+
     return (
         <div className="friend_list_item flex items-center p-3 bg-white rounded-xl shadow-md mb-2">
-            {/* 프로필 이미지 (임시 이모지) */}
-            <div className="friend_profile_img text-3xl mr-4">
-                {/* 🎨 친구 프로필 이미지 또는 이니셜 (임시) */}
-                {friend.name ? friend.name[0] : '👤'}
+            {/* 🖼️ 프로필 이미지 영역: URL이 있으면 img 태그 사용, 없으면 이니셜 표시 */}
+            <div className="friend_profile_img w-10 h-10 rounded-full overflow-hidden mr-4 flex items-center justify-center bg-gray-200">
+                {imageUrl ? (
+                    <img 
+                        // Note: 백엔드 서버의 주소(http://localhost:8000)를 포함해야 할 수 있습니다. 
+                        // 만약 imageUrl이 '/uploaded_images/...'와 같은 상대 경로라면,
+                        // URL 앞에 BASE_URL의 호스트 부분을 붙여야 합니다.
+                        // 현재 BASE_URL = 'http://localhost:8000/api/v1/user/user'이므로,
+                        // 이미지 URL은 http://localhost:8000/uploaded_images/... 형태여야 합니다. 
+                        // 백엔드에서 절대 경로를 제공한다고 가정하고 그대로 사용합니다.
+                        src={
+                            imageUrl.startsWith('http') 
+                                ? imageUrl 
+                                : `http://localhost:8000${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`
+                        }
+                        alt={`${friend.name} 프로필`} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => { 
+                            e.target.onerror = null; 
+                            e.target.style.display = 'none'; 
+                            // 이미지가 로드되지 않을 때 이니셜을 표시하기 위해 다음 div를 보이게 할 수도 있지만, 
+                            // 여기서는 간단히 이니셜 span을 기본값으로 남깁니다.
+                        }}
+                    />
+                ) : (
+                    // URL이 없거나 로드에 실패했을 때 표시되는 이니셜
+                    <span className="text-xl font-bold text-gray-600">
+                        {initial}
+                    </span>
+                )}
             </div> 
+            
             <div className="friend_info flex-grow">
-                {/* 이름 표시. name이 없을 경우 email을 임시로 사용합니다. */}
                 <p className="friend_name text-lg font-semibold">{friend.name || friend.email || '알 수 없는 사용자'}</p>
-                {/* 친구 코드 표시 */}
                 <p className="friend_code_display text-sm text-gray-500">Code: {friend.friend_code}</p> 
             </div>
-            {/* 여기에 추가적인 액션 버튼 (예: 채팅, 설정)이 들어갈 수 있습니다. */}
         </div>
     );
 };
@@ -32,10 +62,30 @@ const FriendListItem = ({ friend }) => {
 
 // 2. 검색 결과를 표시할 컴포넌트 
 const FoundFriendCard = ({ user, onAddFriend }) => {
+    const imageUrl = user.profile_image_url;
+    const initial = user.name ? user.name[0] : '👤';
+    
     return (
         <div className="found_friend_card flex items-center justify-between p-4 bg-yellow-50 rounded-xl shadow-inner mt-4">
-            {/* 프로필 이미지 목업 */}
-            <div className="friend_profile_img text-3xl mr-4">👤</div> 
+            {/* 🖼️ 프로필 이미지 영역 수정 */}
+            <div className="friend_profile_img w-10 h-10 rounded-full overflow-hidden mr-4 flex items-center justify-center bg-gray-300">
+                {imageUrl ? (
+                    <img 
+                        src={imageUrl.startsWith('http') ? imageUrl : `http://localhost:8000/${imageUrl}`} 
+                        alt={`${user.name} 프로필`} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => { 
+                            e.target.onerror = null; 
+                            e.target.style.display = 'none'; 
+                        }}
+                    />
+                ) : (
+                    <span className="text-xl font-bold text-gray-700">
+                        {initial}
+                    </span>
+                )}
+            </div>  
+            
             <div className="friend_info flex-grow">
                 {/* 이름 표시 */}
                 <p className="friend_name text-lg font-bold">{user.name || user.email}</p>
@@ -200,10 +250,10 @@ const Friend = () => {
             <Header />
             <div className="info max-w-4xl mx-auto p-4 md:p-8">
                 <div className='text_wrap_f mb-8'>
-                    <h1 className='main_text_f text-4xl font-extrabold text-gray-800 mb-4'>친구 (Friend)</h1>
+                    <h1 className='main_text_f text-4xl font-extrabold text-gray-800 mb-5'>친구 (Friend)</h1>
                     
                     {/* 검색창 영역 */}
-                    <div className='search_input_wrap flex items-center bg-white rounded-xl shadow-lg p-3'>
+                    <div className='search_input_wrap flex items-center bg-white rounded-xl shadow-lg p-3 mt-4'>
                         <input 
                             type="text"
                             placeholder="친구 코드로 검색 (예: A1B2C3D)"

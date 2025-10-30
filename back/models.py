@@ -26,6 +26,7 @@ class User(Base):
     
     # 릴레이션 정의
     memos = relationship("Memo", back_populates="owner")
+    profile_image_url = Column(String, nullable=True, default=None) 
     projects = relationship("ProjectMember", back_populates="user")
     
     # 🚨 친구 관계 릴레이션 정의 (user.py 로직과 일치)

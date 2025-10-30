@@ -15,7 +15,11 @@ if not DATABASE_URL:
 # pool_pre_ping=True: DB 연결이 유효한지 주기적으로 확인하여 연결 끊김 오류 방지
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    # 🚨 중요 수정 1: 커넥션 풀 크기 증가 (기본 5개보다 늘려 동시 요청 처리 능력 향상)
+    pool_size=20,
+    # 🚨 중요 수정 2: 풀이 가득 찼을 때 초과로 생성할 수 있는 연결 개수 설정
+    max_overflow=30 
 )
 
 # 3. 데이터베이스 세션 클래스 생성

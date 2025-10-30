@@ -118,7 +118,7 @@ const SignupPage = () => {
 
         // FastAPI 백엔드의 signup 엔드포인트 호출
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v1/auth/signup`, {
+            const response = await fetch(`${API_BASE_URL}/api/v1/signup`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
