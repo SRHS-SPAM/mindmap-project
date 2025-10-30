@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 
 // 💡 API 기본 설정
 const BACKEND_BASE_URL = 'http://localhost:8000';
+const API_HOST = 'http://localhost:8000';
 const API_VERSION_PREFIX = '/api/v1';
 const USER_API_URL = `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/user/user`;
 
@@ -65,29 +66,58 @@ const Header = () => {
 // [Component] Friends (내부 컴포넌트 - 접속 중인 친구 카드)
 // ----------------------------------------------------
 const Friends = ({ friend }) => {
-    // 친구 이름의 첫 글자를 따서 아바타 생성
-    const avatarLetter = friend.name ? friend.name.charAt(0) : '?';
-    const avatarUrl = `https://placehold.co/40x40/4f46e5/ffffff?text=${avatarLetter}`;
-
+    // friend 객체에서 프로필 이미지 URL과 이름/이메일을 추출합니다.
+    const imageUrl = friend.profile_image_url;
+    const initial = friend.name ? friend.name[0] : (friend.email ? friend.email[0] : '👤');
+    const badgeColorClass = friend.is_online 
+        ? "bg-green-500 border-2 border-white" // 온라인: 초록색
+        : "bg-gray-400 border-2 border-white"; // 오프라인: 회색
+    
     return (
-        <div className="p-3 flex flex-col items-center bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition shadow-sm">
-            <div className="relative">
-                <img 
-                    src={avatarUrl} 
-                    alt={friend.name} 
-                    className="w-10 h-10 object-cover rounded-full mb-1"
-                />
-                {/* 온라인 상태 표시 (녹색 점) */}
-                {friend.is_online && (
-                    <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full ring-2 ring-white bg-green-400"></span>
-                )}
+        <div className="friend_card flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition duration-150 cursor-pointer">
+            
+            {/* 🖼️ 프로필 이미지 영역 */}
+            <div className="relative w-16 h-16 rounded-full mb-2 flex items-center justify-center bg-gray-200 border-2 border-indigo-500">
+                {imageUrl ? (
+                    <img 
+                        src={
+                            // 💡 핵심: 중복 슬래시 방지 로직을 적용하여 URL을 구성
+                            imageUrl.startsWith('http') 
+                                ? imageUrl 
+                                : `${API_HOST}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`
+                        } 
+                        alt={`${friend.name} 프로필`} 
+                        className="w-full h-full object-cover rounded-full" 
+                        onError={(e) => { 
+                            // 이미지 로드 실패 시, 이니셜/기본 이미지로 대체
+                            e.target.style.display = 'none'; // img 태그 숨김
+                            e.target.parentElement.querySelector('.initial-fallback').style.display = 'flex'; // 이니셜 표시
+                        }}
+                    />
+                ) : null}
+                
+                {/* 👤 URL이 없거나 로드 실패 시 표시될 이니셜/기본값 */}
+                <span 
+                    className={`initial-fallback text-2xl font-bold text-gray-600 ${imageUrl ? 'hidden' : 'flex'}`}
+                >
+                    {initial}
+                </span>
+
+                {/* 🟢 온라인 상태 표시 (작은 점) */}
+                <span className={`absolute bottom-0 right-0 w-4 h-4 rounded-full ${badgeColorClass}`}></span> {/* ⬅️ 클래스 적용 */}
             </div>
-            <p className="text-sm font-semibold text-gray-800 truncate w-full text-center">{friend.name || '알 수 없음'}</p>
-            <p className="text-xs text-gray-500">{friend.is_online ? '접속 중' : '오프라인'}</p>
+            
+            {/* 이름 표시 */}
+            <p className="text-sm font-semibold text-gray-800 truncate w-full text-center">
+                {friend.name || friend.email.split('@')[0]}
+            </p>
+            {/* 상태 메시지 */}
+            <p className="text-xs text-indigo-500">
+                {friend.is_online ? "접속 중" : "오프라인"}
+            </p>
         </div>
     );
 };
-
 // ----------------------------------------------------
 // [Component] ProjectCard (내부 컴포넌트)
 // ----------------------------------------------------
@@ -139,6 +169,10 @@ const FriendPage = () => {
 // ----------------------------------------------------
 // [Page] HomePage (내부 페이지 - /)
 // ----------------------------------------------------
+
+// ----------------------------------------------------------------------
+
+
 const HomePage = () => {
     const navigation = useNavigate();
     
@@ -149,11 +183,11 @@ const HomePage = () => {
     
     // 💡 [수정] 친구 로딩을 위한 초기 데이터 (API 실패 대비용)
     const [friendsList, setFriendsList] = useState([
-        { id: 'test_a', name: '테스트 친구 A', is_online: true },
-        { id: 'test_b', name: '테스트 친구 B', is_online: false },
-        { id: 'test_c', name: '테스트 친구 C', is_online: true },
+        { id: 'test_a', name: '테스트 친구 A', is_online: true, profile_image_url: null },
+        { id: 'test_b', name: '테스트 친구 B', is_online: false, profile_image_url: null },
+        { id: 'test_c', name: '테스트 친구 C', is_online: true, profile_image_url: null },
     ]); 
-    const [isOnlineLoading, setIsOnlineLoading] = useState(false); // 초기 로딩 UI 표시를 위해 false로 설정
+    const [isOnlineLoading, setIsOnlineLoading] = useState(false); 
     const [statusMessage, setStatusMessage] = useState(null); 
 
     
@@ -195,10 +229,8 @@ const HomePage = () => {
             // Friendship 객체에서 실제 친구 정보 추출
             const normalizedFriends = response.data.map(item => item.friend_user || item);
             setFriendsList(normalizedFriends); 
-            // API 성공 시, 임시 데이터는 덮어쓰여지고 실제 친구 목록이 표시됨
         } catch (error) {
             console.error("온라인 친구 목록 로딩 에러:", error.response?.data || error.message);
-            // API 실패 시, 임시 데이터 유지
         } finally {
             setIsOnlineLoading(false);
         }
@@ -216,7 +248,7 @@ const HomePage = () => {
             }
 
             const response = await axios.get(`${BACKEND_BASE_URL}${API_VERSION_PREFIX}/projects/`, {
-                 headers: { 'Authorization': `Bearer ${authToken}` }
+                headers: { 'Authorization': `Bearer ${authToken}` }
             });
 
             setProjects(response.data);
@@ -276,8 +308,7 @@ const HomePage = () => {
         };
     }, [fetchFriends, setOnlineStatus, fetchProjects]);
     
-    // 접속 중인 친구만 필터링
-    const onlineFriends = friendsList.filter(f => f.is_online);
+    const allFriends = friendsList;
 
     // --- 렌더링 ---
     return(
@@ -291,7 +322,7 @@ const HomePage = () => {
                 {/* 💡 접속 중인 친구 목록 영역 */}
                 <div className="mb-10 p-4 bg-white rounded-xl shadow-lg border border-gray-100">
                     <h2 className="text-xl font-bold text-indigo-600 mb-4 border-b pb-2 flex justify-between items-center">
-                        접속 중인 친구 ({onlineFriends.length})
+                        접속 중인 친구 ({allFriends.filter(f => f.is_online).length}) {/* ⬅️ allFriends로 변경 (온라인 수만 계산) */}
                         <button 
                             onClick={() => navigation('/friends')} 
                             className='text-sm text-gray-500 hover:text-indigo-700 transition'
@@ -299,14 +330,15 @@ const HomePage = () => {
                             전체 친구 목록 보기 &gt;
                         </button>
                     </h2>
-                    
+
                     {isOnlineLoading ? (
                         <p className="text-gray-500 py-4 text-center">친구 목록을 불러오는 중...</p>
-                    ) : onlineFriends.length === 0 ? (
-                        <p className="text-gray-500 py-4 text-center">현재 접속 중인 친구가 없습니다.</p>
+                    ) : allFriends.length === 0 ? ( // ⬅️ allFriends.length로 변경
+                        <p className="text-gray-500 py-4 text-center">친구 목록이 비어 있습니다.</p>
                     ) : (
                         <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                             {onlineFriends.map(friend => (
+                            {/* 🚨 [수정] allFriends를 map 합니다. */}
+                            {allFriends.map(friend => (
                                 <div key={friend.id} className="min-w-[150px] flex-shrink-0">
                                     <Friends friend={friend} /> 
                                 </div>
@@ -353,6 +385,7 @@ const HomePage = () => {
                                 <p className="text-gray-500 p-4">참여 중인 프로젝트가 없습니다. 새로 만들어보세요!</p>
                             )}
 
+                            {/* ProjectCard 컴포넌트가 따로 있다고 가정 */}
                             {projects.map(project => (
                                 <ProjectCard 
                                     key={project.id} 

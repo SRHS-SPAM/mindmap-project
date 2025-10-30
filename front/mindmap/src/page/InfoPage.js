@@ -402,11 +402,9 @@ const InfoPageScreen = () => {
         setMessageBox(null);
     }, []);
     
-    // ------------------------------------
-    // 🚨 프로필 이미지 로드 함수 (인증 토큰 필요)
-    // ------------------------------------
     const fetchProfileImage = useCallback(async (token) => {
         const imageUrl = `${API_BASE_URL}/api/v1/auth/me/profile_image`;
+        
         try {
             const response = await fetch(imageUrl, {
                 method: 'GET',
@@ -416,20 +414,15 @@ const InfoPageScreen = () => {
             });
 
             if (response.ok) {
-                // 이미지 데이터를 Blob으로 변환
                 const imageBlob = await response.blob();
-                // 기존 Blob URL이 있다면 해제 (메모리 누수 방지)
-                if (profileImage && profileImage.startsWith('blob:')) {
-                    URL.revokeObjectURL(profileImage);
-                }
-                // 새로운 Blob URL 생성
                 const objectUrl = URL.createObjectURL(imageBlob);
+                
+                // Note: 이전 Blob URL 해제는 useEffect 클린업 함수에서 처리합니다.
                 setProfileImage(objectUrl);
             } else if (response.status === 404) {
-                // 이미지가 없는 경우 기본 이미지 사용
+                // 서버에 이미지가 없는 경우 (404 Not Found)
                 setProfileImage(defaultPlaceholderImage);
             } else {
-                // 기타 이미지 로드 실패 시
                 console.error("Profile image fetch failed:", response.status);
                 setProfileImage(defaultPlaceholderImage);
             }
@@ -437,12 +430,18 @@ const InfoPageScreen = () => {
             console.error("Network error fetching profile image:", error);
             setProfileImage(defaultPlaceholderImage);
         }
-    }, [profileImage]); // profileImage를 디펜던시로 추가하여 revokeObjectURL이 올바른 이전 URL을 참조하도록 함
+    }, []); // ⬅️ ⭐️ 핵심: 빈 배열로 설정하여 무한 루프 차단
 
-    // 사용자 정보 불러오기 (GET /me)
+// ------------------------------------
+
+// 💡 2. fetchUserProfile: 사용자 기본 정보와 이미지를 함께 불러옵니다.
+//    ✅ fetchProfileImage 의존성을 제거하여 루프를 차단합니다.
     const fetchUserProfile = useCallback(async () => {
         const token = sessionStorage.getItem('access_token');
+        
+        // 로딩 멈춤 방지 및 토큰 체크
         if (!token) {
+            setIsLoading(false); // 로딩 상태 해제 (추가)
             navigation('/login'); 
             return;
         }
@@ -459,7 +458,6 @@ const InfoPageScreen = () => {
             if (response.ok) {
                 const userData = await response.json();
                 
-                // 친구 코드 필드 추가: friend_code가 없으면 "코드 없음"으로 처리 (Mock 데이터 사용)
                 if (!userData.friend_code) {
                     userData.friend_code = 'A1B2C3D'; 
                 }
@@ -468,7 +466,7 @@ const InfoPageScreen = () => {
                 setTempDisplayName(userData.name || '이름 정보 없음');
                 setTempEmail(userData.email || '이메일 정보 없음');
 
-                // 🚨 이미지 로드 함수 호출
+                // 이미지 로드 함수 호출
                 await fetchProfileImage(token);
 
             } else if (response.status === 401) {
@@ -483,22 +481,28 @@ const InfoPageScreen = () => {
             console.error("Fetch Error:", error);
             setMessageBox({ type: 'error', message: "네트워크 오류로 사용자 정보를 불러올 수 없습니다." });
         } finally {
-            setIsLoading(false);
+            setIsLoading(false); // 로딩 해제
         }
-    }, [navigation, fetchProfileImage]);
+    }, [navigation]); // ⬅️ ⭐️ 핵심: fetchProfileImage 제거
 
+    // ------------------------------------
+
+    // 💡 3. useEffect: 컴포넌트 마운트/업데이트 시 데이터를 불러오고, 언마운트 시 Blob URL을 해제합니다.
+    //    ✅ profileImage 값을 클린업 시점에 캡처하여 정확히 해제합니다.
     useEffect(() => {
         fetchUserProfile();
         
-        // 컴포넌트 언마운트 시 Blob URL 해제
+        // 클린업 함수에서 사용할 profileImage의 현재 값(클로저 캡처)
+        const urlToRevoke = profileImage; 
+
         return () => {
-        // 현재 profileImage 상태에 저장된 값이 Blob URL이라면 해제합니다.
-            // fetchProfileImage 내부에서 이전 URL을 해제하므로, 여기서는 언마운트 시의 최종 URL만 처리합니다.
-        if (profileImage && profileImage.startsWith('blob:')) {
-            console.log("Revoking Blob URL on unmount:", profileImage);
-            URL.revokeObjectURL(profileImage); 
-        }
+            // 컴포넌트가 언마운트되거나 다음 fetchUserProfile 호출 전에 이전 Blob URL 해제
+            if (urlToRevoke && urlToRevoke.startsWith('blob:')) {
+                console.log("Revoking Blob URL on unmount:", urlToRevoke);
+                URL.revokeObjectURL(urlToRevoke); 
+            }
         };
+        // fetchUserProfile만 의존성으로 유지하며, 이는 navigation 변경 시에만 재생성됩니다.
     }, [fetchUserProfile]);
 
     // 프로필 업데이트 처리 (이름만 가능)

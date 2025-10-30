@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles # 정적 파일 서빙을 위해 임포트
 import os
 import vertexai
+from fastapi.staticfiles import StaticFiles
 # 로컬에서 .env 파일의 환경 변수를 로드하기 위해 필요합니다.
 from dotenv import load_dotenv 
 
@@ -98,6 +99,8 @@ app.include_router(memo.router, prefix="/api/v1/memo", tags=["3. 메모 관리"]
 # 💡 project.router와 ai.router의 prefix 조정 유지
 app.include_router(project.router, prefix="/api/v1", tags=["4. 프로젝트 및 마인드맵"])
 app.include_router(ai.router, prefix="/api/v1", tags=["5. AI 마인드맵 생성"])
+
+app.mount("/uploaded_images", StaticFiles(directory="uploaded_images"), name="uploaded_images")
 
 @app.get("/", tags=["Root"])
 def read_root():
