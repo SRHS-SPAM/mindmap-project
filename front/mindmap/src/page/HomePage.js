@@ -17,61 +17,23 @@ const USER_API_URL = `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/user/user`;
 const Header = () => {
     const navigation = useNavigate();
     const isAuthenticated = sessionStorage.getItem('access_token');
-
     const handleLogout = () => {
         sessionStorage.removeItem('access_token');
         navigation('/login');
     };
-
-    return (
-        <header className="bg-white shadow-md sticky top-0 z-10">
-            <div className="max-w-6xl mx-auto p-4 flex justify-between items-center">
-                <h1 
-                    className="text-2xl font-extrabold text-indigo-600 cursor-pointer hover:text-indigo-800 transition"
-                    onClick={() => navigation('/main')}
-                >
-                    MindMapHub
-                </h1>
-                <nav className="flex space-x-4">
-                    {isAuthenticated ? (
-                        <>
-                            <button 
-                                onClick={() => navigation('/friends')}
-                                className="text-gray-600 hover:text-indigo-600 font-medium transition"
-                            >
-                                친구 관리
-                            </button>
-                            <button 
-                                onClick={handleLogout}
-                                className="bg-red-500 text-white px-3 py-1 rounded-full text-sm hover:bg-red-600 transition"
-                            >
-                                로그아웃
-                            </button>
-                        </>
-                    ) : (
-                        <button 
-                            onClick={() => navigation('/login')}
-                            className="text-indigo-600 hover:text-indigo-800 font-medium transition"
-                        >
-                            로그인
-                        </button>
-                    )}
-                </nav>
-            </div>
-        </header>
-    );
 };
 
 // ----------------------------------------------------
 // [Component] Friends (내부 컴포넌트 - 접속 중인 친구 카드)
 // ----------------------------------------------------
 const Friends = ({ friend }) => {
-    // friend 객체에서 프로필 이미지 URL과 이름/이메일을 추출합니다.
+    // Friends 컴포넌트의 스타일은 현재 Tailwind 기반이므로, 
+    // .friend_card 클래스 외의 Tailwind 클래스는 유지합니다.
     const imageUrl = friend.profile_image_url;
     const initial = friend.name ? friend.name[0] : (friend.email ? friend.email[0] : '👤');
     const badgeColorClass = friend.is_online 
-        ? "bg-green-500 border-2 border-white" // 온라인: 초록색
-        : "bg-gray-400 border-2 border-white"; // 오프라인: 회색
+        ? "bg-green-500 border-2 border-white" 
+        : "bg-gray-400 border-2 border-white";
     
     return (
         <div className="friend_card flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition duration-150 cursor-pointer">
@@ -81,7 +43,6 @@ const Friends = ({ friend }) => {
                 {imageUrl ? (
                     <img 
                         src={
-                            // 💡 핵심: 중복 슬래시 방지 로직을 적용하여 URL을 구성
                             imageUrl.startsWith('http') 
                                 ? imageUrl 
                                 : `${API_HOST}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`
@@ -89,9 +50,8 @@ const Friends = ({ friend }) => {
                         alt={`${friend.name} 프로필`} 
                         className="w-full h-full object-cover rounded-full" 
                         onError={(e) => { 
-                            // 이미지 로드 실패 시, 이니셜/기본 이미지로 대체
-                            e.target.style.display = 'none'; // img 태그 숨김
-                            e.target.parentElement.querySelector('.initial-fallback').style.display = 'flex'; // 이니셜 표시
+                            e.target.style.display = 'none'; 
+                            e.target.parentElement.querySelector('.initial-fallback').style.display = 'flex'; 
                         }}
                     />
                 ) : null}
@@ -104,7 +64,7 @@ const Friends = ({ friend }) => {
                 </span>
 
                 {/* 🟢 온라인 상태 표시 (작은 점) */}
-                <span className={`absolute bottom-0 right-0 w-4 h-4 rounded-full ${badgeColorClass}`}></span> {/* ⬅️ 클래스 적용 */}
+                <span className={`absolute bottom-0 right-0 w-4 h-4 rounded-full ${badgeColorClass}`}></span>
             </div>
             
             {/* 이름 표시 */}
@@ -123,8 +83,9 @@ const Friends = ({ friend }) => {
 // ----------------------------------------------------
 const ProjectCard = ({ project, onClick }) => {
     return (
+        // 🚨 [수정] act_wrap_item 클래스 사용
         <div 
-            className="p-4 bg-white rounded-xl shadow-md hover:shadow-lg transition cursor-pointer transform hover:scale-[1.02] min-w-[250px] border border-gray-100" 
+            className="act_wrap_item" 
             onClick={() => onClick(project.id)}
         >
             <h3 className="text-lg font-bold text-gray-800 truncate">{project.title}</h3>
@@ -138,7 +99,6 @@ const ProjectCard = ({ project, onClick }) => {
         </div>
     );
 };
-
 // ----------------------------------------------------
 // [Page] FriendPage (내부 페이지 - /friends)
 // ----------------------------------------------------
@@ -181,14 +141,13 @@ const HomePage = () => {
     const [error, setError] = useState(null); 
     const [newProjectTitle, setNewProjectTitle] = useState(''); 
     
-    // 💡 [수정] 친구 로딩을 위한 초기 데이터 (API 실패 대비용)
     const [friendsList, setFriendsList] = useState([
         { id: 'test_a', name: '테스트 친구 A', is_online: true, profile_image_url: null },
         { id: 'test_b', name: '테스트 친구 B', is_online: false, profile_image_url: null },
         { id: 'test_c', name: '테스트 친구 C', is_online: true, profile_image_url: null },
     ]); 
     const [isOnlineLoading, setIsOnlineLoading] = useState(false); 
-    const [statusMessage, setStatusMessage] = useState(null); 
+    const [statusMessage, setStatusMessage] = useState(null);
 
     
     // 1. 사용자 자신의 온라인 상태를 설정하는 함수
@@ -296,36 +255,39 @@ const HomePage = () => {
 
     // 6. 마운트/언마운트 시 로직
     useEffect(() => {
-        // 1. 사용자 상태를 온라인(True)으로 설정
         setOnlineStatus(true);
-        // 2. 데이터 로드
         fetchProjects(); 
         fetchFriends(); 
 
-        // 3. 클린업 함수: 언마운트 시 오프라인(False)으로 설정
         return () => {
             setOnlineStatus(false);
         };
     }, [fetchFriends, setOnlineStatus, fetchProjects]);
     
+    // 💡 [수정] 전체 친구 목록을 사용
     const allFriends = friendsList;
 
     // --- 렌더링 ---
     return(
-        <div className="min-h-screen bg-gray-50 pb-10">
-            <Header />
-            <div className="p-6 max-w-6xl mx-auto">
-                <div className='mb-8'>
-                    <h1 className='text-4xl font-extrabold text-gray-800 mb-6'>HOME</h1>
-                </div>
+        // 🚨 [수정] wrap_ho 클래스 적용
+        <div className="wrap_ho"> 
+            <Header /> {/* Header 컴포넌트는 wrap_ho에 의해 왼쪽 100px 공간을 무시하고 오른쪽 영역에 배치됩니다. */}
+            
+            {/* 🚨 [수정] info 클래스 적용 */}
+            <div className="info"> 
+                
+                {/* 🚨 [수정] main_text_ho 클래스 적용 */}
+                <h1 className='main_text_ho'>HOME</h1> 
 
                 {/* 💡 접속 중인 친구 목록 영역 */}
-                <div className="mb-10 p-4 bg-white rounded-xl shadow-lg border border-gray-100">
-                    <h2 className="text-xl font-bold text-indigo-600 mb-4 border-b pb-2 flex justify-between items-center">
-                        접속 중인 친구 ({allFriends.filter(f => f.is_online).length}) {/* ⬅️ allFriends로 변경 (온라인 수만 계산) */}
+                {/* 🚨 [수정] people_wrap 클래스 적용 */}
+                <div className="people_wrap">
+                    {/* 🚨 [수정] sub_text_ho 클래스 적용 */}
+                    <h2 className="sub_text_ho">
+                        접속 중인 친구 ({allFriends.filter(f => f.is_online).length})
                         <button 
                             onClick={() => navigation('/friends')} 
-                            className='text-sm text-gray-500 hover:text-indigo-700 transition'
+                            className='text-sm text-gray-500 hover:text-indigo-700 transition' // 이 부분은 Tailwind 클래스 유지
                         >
                             전체 친구 목록 보기 &gt;
                         </button>
@@ -333,21 +295,24 @@ const HomePage = () => {
 
                     {isOnlineLoading ? (
                         <p className="text-gray-500 py-4 text-center">친구 목록을 불러오는 중...</p>
-                    ) : allFriends.length === 0 ? ( // ⬅️ allFriends.length로 변경
+                    ) : allFriends.length === 0 ? ( 
                         <p className="text-gray-500 py-4 text-center">친구 목록이 비어 있습니다.</p>
                     ) : (
-                        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                            {/* 🚨 [수정] allFriends를 map 합니다. */}
-                            {allFriends.map(friend => (
-                                <div key={friend.id} className="min-w-[150px] flex-shrink-0">
-                                    <Friends friend={friend} /> 
-                                </div>
-                            ))}
+                        // 🚨 [수정] scroll 클래스 적용
+                        <div className="scroll"> 
+                            {/* 🚨 [수정] act_wrap 클래스 적용 (친구 목록은 기존 flex-shrink-0 구조를 유지) */}
+                            <div className="act_wrap">
+                                {allFriends.map(friend => (
+                                    <div key={friend.id} className="min-w-[150px] flex-shrink-0">
+                                        <Friends friend={friend} /> 
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
 
-                {/* 상태 메시지 */}
+                {/* 상태 메시지 (Tailwind 클래스 유지) */}
                 {statusMessage && (
                     <div className={`p-3 mb-4 rounded-lg text-sm font-medium ${statusMessage.includes('실패') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                         {statusMessage}
@@ -355,29 +320,33 @@ const HomePage = () => {
                 )}
 
                 {/* --- RECENT ACTIVITY 섹션 (프로젝트 목록 및 생성) --- */}
-                <div className="mb-10"> 
-                    <div className='flex justify-between items-center mb-4 border-b pb-2'>
-                        <h1 className='text-2xl font-bold text-gray-700'>최근 활동 프로젝트</h1>
+                {/* 🚨 [수정] resent_wrap 클래스 적용 */}
+                <div className="resent_wrap"> 
+                    <div className='flex justify-between items-center mb-4 border-b pb-2'> {/* 이 부분은 Tailwind 클래스 유지 */}
+                         {/* 🚨 [수정] sub_text_ho 클래스 적용 */}
+                        <h1 className='sub_text_ho'>최근 활동 프로젝트</h1> 
                         
-                        <div className="flex gap-2">
+                        <div className="flex gap-2"> {/* 이 부분은 Tailwind 클래스 유지 */}
                             <input
                                 type="text"
                                 value={newProjectTitle}
                                 onChange={(e) => setNewProjectTitle(e.target.value)}
                                 placeholder="새 프로젝트 제목"
-                                className="p-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                className="p-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500" // Tailwind 클래스 유지
                             />
                             <button 
                                 onClick={createNewProject}
-                                className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-md"
+                                className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-md" // Tailwind 클래스 유지
                             >
                                 + 새 프로젝트
                             </button>
                         </div>
                     </div>
                     
-                    <div className="overflow-x-auto">
-                        <div className="flex gap-4 p-2">
+                    {/* 🚨 [수정] scroll 클래스 적용 */}
+                    <div className="scroll"> 
+                        {/* 🚨 [수정] act_wrap 클래스 적용 (프로젝트 목록) */}
+                        <div className="act_wrap">
                             {isLoading && <p className="text-gray-500 p-4">프로젝트를 불러오는 중...</p>}
                             {error && <p className="text-red-500 p-4">오류: {error}</p>}
                             
@@ -385,7 +354,7 @@ const HomePage = () => {
                                 <p className="text-gray-500 p-4">참여 중인 프로젝트가 없습니다. 새로 만들어보세요!</p>
                             )}
 
-                            {/* ProjectCard 컴포넌트가 따로 있다고 가정 */}
+                            {/* ProjectCard 컴포넌트 내부에서 act_wrap_item 클래스를 사용합니다. */}
                             {projects.map(project => (
                                 <ProjectCard 
                                     key={project.id} 
@@ -398,12 +367,13 @@ const HomePage = () => {
                 </div>
 
                 {/* Mind Maps Friends Are Active On 섹션 */}
-                <div className="mb-10">
-                    <div className='mb-4 border-b pb-2'>
-                        <h1 className='text-2xl font-bold text-gray-700'>친구들이 활동 중인 마인드맵</h1>
+                <div className="mb-10"> {/* Tailwind 클래스 유지 */}
+                    <div className='mb-4 border-b pb-2'> {/* Tailwind 클래스 유지 */}
+                         {/* 🚨 [수정] sub_text_ho 클래스 적용 */}
+                        <h1 className='sub_text_ho'>친구들이 활동 중인 마인드맵</h1>
                     </div>
-                    <div className="overflow-x-auto">
-                        <div className="flex gap-4 p-2">
+                    <div className="overflow-x-auto"> {/* Tailwind 클래스 유지 */}
+                        <div className="flex gap-4 p-2"> {/* Tailwind 클래스 유지 */}
                             <p className="p-4 bg-white rounded-xl shadow-sm text-gray-500">이 기능은 곧 추가될 예정입니다.</p>
                         </div>
                     </div>
