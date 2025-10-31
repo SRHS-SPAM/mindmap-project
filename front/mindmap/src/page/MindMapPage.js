@@ -82,72 +82,264 @@ const ChatMessage = ({ role, text }) => {
     );
 };
 
+// BranchNode 컴포넌트 내부 수정 (파일 상단 부분)
+const BranchNode = React.forwardRef(({ branch, branchIndex, detailRefs, style }, ref) => {
+    // 💡 [수정] 세부 사항을 즉시 렌더링하도록 기본값을 true로 설정
+    const [showDetails, setShowDetails] = React.useState(true); 
+    
+    // 💡 [추가] BranchIndex가 0인 경우 (가장 위쪽) 세부 주제를 위로 배치
+    const isTopBranch = branchIndex === 0;
+
+    return (
+        <div key={branchIndex} className="pointer-events-all relative" style={style}>
+            {/* 가지(Branch) 노드 */}
+            <div 
+                ref={ref}
+                className="branch-node min-w-[120px] max-w-[200px] text-sm"
+                onClick={() => setShowDetails(!showDetails)}
+            >
+                {branch.topic}
+            </div>
+            
+            {/* 세부 사항 (Details) 리스트 */}
+            {showDetails && (
+                <ul className={`mt-2 p-2 bg-gray-100 border border-gray-300 rounded-lg shadow-md max-w-[250px] absolute z-10
+                    // 💡 [핵심 수정] 상단 브랜치일 경우 위쪽으로 배치 (bottom-full)
+                    ${isTopBranch ? 'bottom-full mb-4' : 'top-full mt-4'}
+                    left-1/2 transform -translate-x-1/2
+                    text-left
+                `} style={{ minWidth: '150px' }}>
+                    {branch.details.map((detail, detailIndex) => (
+                        <li 
+                            key={detailIndex} 
+                            className="detail-item text-xs my-1 relative" 
+                        >
+                            <div
+                                ref={el => {
+                                    if (!detailRefs.current[branchIndex]) {
+                                        detailRefs.current[branchIndex] = [];
+                                    }
+                                    detailRefs.current[branchIndex][detailIndex] = el;
+                                }}
+                                className="detail-text p-1"
+                            >
+                                {detail}
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+});
+// Component 이름을 명확히 지정합니다.
+BranchNode.displayName = 'BranchNode';
+
 // --- Mind Map Rendering Component (마인드맵 구조 렌더링) ---
 const MindMapOutput = ({ mindMapData, errorMessage }) => {
 
-    // 💡 [핵심] mindMapData가 없거나 branches가 배열이 아니면 에러/초기 메시지를 표시합니다.
-    if (!mindMapData || !Array.isArray(mindMapData.branches)) {
-        if (errorMessage) {
-            // API 오류 발생 시 메시지 표시
-            return (
-                <div className="text-red-500 p-4 bg-red-100 rounded-lg">
-                    <strong>오류 발생:</strong> 마인드맵 생성에 실패했습니다. (콘솔 확인)
-                    <p className="mt-2 text-sm text-red-700">API 설정 또는 응답 처리 중 문제가 발생했습니다.</p>
-                </div>
-            );
+    // 💡 [수정] mindMapData의 유효성 검사 및 초기값 설정
+    const { mainTopic, branches } = mindMapData || { mainTopic: '주제를 생성하세요', branches: [] };
+
+    // 💡 [수정] useRef는 컴포넌트 내부에서 생성하며, 각 ref의 초기값은 null입니다.
+    const coreRef = React.useRef(null);
+    const branchRefs = React.useRef([]);
+    const detailRefs = React.useRef({});
+    const svgRef = React.useRef(null);
+
+    // 💡 [상수 정의] Core 위치와 Branch 거리를 픽셀로 정의
+    const CORE_CENTER_X = 300; // Core의 중앙 X 좌표 (px)
+    const CORE_CENTER_Y = 300; // Core의 중앙 Y 좌표 (px)
+    const RADIUS = 150; // Core에서 Branch까지의 거리 (px) - 선 길이 조정
+
+    // 연결선을 그리는 함수 (핵심 주제 -> 가지, 가지 -> 세부사항)
+    const drawConnections = React.useCallback(() => {
+        const svgElement = svgRef.current;
+        const coreElement = coreRef.current;
+
+        if (!svgElement || !coreElement) return;
+
+        // Bounding Rects는 화면 좌표를 기준으로 하므로, SVG의 상대 좌표로 변환해야 합니다.
+        const svgRect = svgElement.getBoundingClientRect();
+        const coreRect = coreElement.getBoundingClientRect();
+        // SVG 내의 중심 좌표 계산
+        const coreX = coreRect.left + coreRect.width / 2 - svgRect.left;
+        const coreY = coreRect.top + coreRect.height / 2 - svgRect.top;
+
+        // 이전에 그린 선들 제거
+        while (svgElement.lastChild) {
+            svgElement.removeChild(svgElement.lastChild);
         }
+
+        // 핵심 주제 -> 가지 연결선 (Primary Branches)
+        branches.forEach((branch, branchIndex) => {
+            const branchElement = branchRefs.current[branchIndex];
+            if (branchElement) {
+                const branchRect = branchElement.getBoundingClientRect();
+                const branchX = branchRect.left + branchRect.width / 2 - svgRect.left;
+                const branchY = branchRect.top + branchRect.height / 2 - svgRect.top;
+
+                // 💡 [핵심 복구] Core -> Branch 선 시작/끝점 조정
+                const dx_c2b = branchX - coreX; 
+                const dy_c2b = branchY - coreY; 
+                const distance_c2b = Math.sqrt(dx_c2b * dx_c2b + dy_c2b * dy_c2b); 
+                
+                const coreRadius = coreRect.width / 2; 
+                const branchRadius = branchRect.width / 2; 
+                
+                // Core 경계의 시작점
+                const startX = coreX + (dx_c2b / distance_c2b) * coreRadius;
+                const startY = coreY + (dy_c2b / distance_c2b) * coreRadius;
+                
+                // Branch 경계의 끝점
+                const endX = branchX - (dx_c2b / distance_c2b) * branchRadius;
+                const endY = branchY - (dy_c2b / distance_c2b) * branchRadius;
+                
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const d = `M ${startX} ${startY} L ${endX} ${endY}`; // 경계에 맞춘 직선
+                path.setAttribute('d', d);
+                path.setAttribute('stroke', '#6366f1'); // indigo-500
+                path.setAttribute('stroke-width', '3');
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke-linecap', 'round');
+
+                svgElement.appendChild(path); // **<--- Core-Branch 선 그리기 복구 완료**
+
+                // 가지 -> 세부사항 연결선 (Secondary Details)
+                const details = detailRefs.current[branchIndex] || [];
+                const isTopBranch = branchIndex === 0;
+                
+                // Branch 노드의 상단 또는 하단 경계
+                const branchEdgeY = isTopBranch ? (branchRect.top - svgRect.top) : (branchRect.top + branchRect.height - svgRect.top); 
+                
+                details.forEach(detailElement => {
+                    if (detailElement) {
+                        const detailRect = detailElement.getBoundingClientRect();
+                        
+                        // Detail 노드의 중앙 X 좌표
+                        const detailX = detailRect.left + detailRect.width / 2 - svgRect.left;
+                        
+                        // Detail 노드의 상단 또는 하단 경계
+                        const detailEdgeY = isTopBranch ? (detailRect.top + detailRect.height - svgRect.top) : (detailRect.top - svgRect.top);
+
+                        // Branch에서 세부 항목으로 수직으로 선을 긋습니다.
+                        const startX_d = branchX; 
+                        const startY_d = branchEdgeY; // Branch 노드의 상단/하단 경계
+
+                        const endX_d = detailX;
+                        const endY_d = detailEdgeY; // Detail 노드의 상단/하단 경계
+                        
+                        const detailPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        
+                        // 💡 [수정] Branch 경계 -> Detail 경계로 수직 연결
+                        const dDetail = `M ${startX_d} ${startY_d} L ${endX_d} ${endY_d}`; 
+                        
+                        detailPath.setAttribute('d', dDetail);
+                        detailPath.setAttribute('stroke', '#94a3b8'); // slate-400
+                        detailPath.setAttribute('stroke-width', '2');
+                        detailPath.setAttribute('fill', 'none');
+                        detailPath.setAttribute('stroke-linecap', 'round');
+
+                        svgElement.appendChild(detailPath);
+                    }
+                });
+            }
+        });
+    }, [branches]); // 의존성 배열 유지
+
+    React.useEffect(() => {
+    // refs 초기화 및 재설정 로직 (명확하게 초기화)
+    branchRefs.current = [];
+    detailRefs.current = {}; // 전체 detailRefs 객체를 초기화
+
+        // 렌더링 후 DOM 요소 크기 계산을 위해 setTimeout으로 지연
+    const timer = setTimeout(() => {
+      if (branches && branches.length > 0) {
+        drawConnections();
+      }
+    }, 100); 
+
+    window.addEventListener('resize', drawConnections);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', drawConnections);
+    };
+        // 💡 [핵심 수정] detailRefs.current 객체가 변경될 때도 선을 다시 그리도록 강제합니다.
+  }, [branches, drawConnections, detailRefs.current]); // <--- detailRefs.current 추가
         
-        // 초기 상태 메시지
+    // 에러 메시지 렌더링
+    if (errorMessage) {
         return (
-            <div className="text-center text-gray-500 py-10">
-                좌측에서 대화를 시작하고 '마인드맵 생성' 버튼을 눌러주세요.
+            <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                <p className="font-bold">마인드맵 생성 오류:</p>
+                <p>{errorMessage}</p>
+                <p className="mt-2 text-sm">대화 내용으로 대체 마인드맵이 생성됩니다.</p>
             </div>
         );
     }
 
-    const { mainTopic, branches } = mindMapData;
-
-    // 마인드맵 가지(Branch)와 세부 사항(Details)을 JSX로 변환
-    const MindMapList = branches.map((branch, index) => { // branches는 이제 확실히 배열입니다.
-        // 💡 [확인] details도 배열임을 보장하기 위해 방어 코드 추가
-        const detailHtml = (branch.details || []).map((detail, detailIndex) => 
-            <li key={detailIndex} className="detail-item text-sm mt-1">{detail}</li>
-        );
-
-        return (
-            <li 
-                key={index} 
-                className="bg-white rounded-xl p-4 mb-4 shadow-lg transition duration-300 hover:shadow-xl hover:scale-[1.01]"
-            >
-                <h3 className="text-xl font-bold text-gray-700 mb-2 border-b pb-1 border-blue-100">
-                    {branch.topic || '가지 주제 없음'}
-                </h3>
-                <ul className="list-none pt-2">{detailHtml}</ul>
-            </li>
-        );
-    });
-
     return (
-        <div>
-            <div className="mb-6">
-                <h2 className="text-3xl font-extrabold text-gray-800 text-center bg-yellow-300 p-4 rounded-xl shadow-lg border-b-4 border-yellow-500 animate-pulse-once">
-                    {mainTopic || '주제 없음'}
-                </h2>
+        // ********** [수정: 컨테이너 스타일 - minHeight를 충분히 주고 중앙 정렬] **********
+        <div className="mindmap-container w-full h-full relative" style={{ minHeight: '600px', display: 'block' }}>
+            
+            {/* 연결선 SVG 레이어 */}
+            <div className="connection-line" style={{ height: '100%', width: '100%' }}>
+                <svg ref={svgRef} className="absolute inset-0 w-full h-full"></svg>
             </div>
-            {branches.length > 0 ? (
-                // mindmap-list 클래스는 Custom CSS에 정의되어 있습니다.
-                <ul className="mindmap-list">
-                    {MindMapList}
-                </ul>
-            ) : (
-                <div className="text-center text-gray-500 py-10">
-                    대화 내용에서 마인드맵 구조를 추출하지 못했습니다. 더 자세한 대화를 시도해 보세요.
-                </div>
-            )}
+
+            {/* 메인 주제 (Core) */}
+            <div ref={coreRef} className="core-topic z-20" 
+                 style={{ 
+                     // 💡 [수정] Core의 위치를 픽셀 기반으로 고정
+                     position: 'absolute', 
+                     left: `${CORE_CENTER_X}px`, 
+                     top: `${CORE_CENTER_Y}px`, 
+                     transform: 'translate(-50%, -50%)' 
+                 }}
+            >
+                {mainTopic}
+            </div>
+            
+            {/* 가지(Branches)와 세부 사항 (Details) 컨테이너 */}
+            <div className="absolute inset-0 pointer-events-none">
+                {branches.map((branch, branchIndex) => {
+                    
+                    // ********** [핵심 로직 수정: 픽셀 기반 위치 계산] **********
+                    const totalBranches = branches.length;
+                    const angleStep = 360 / totalBranches;
+                    const angle = angleStep * branchIndex; 
+                    
+                    const radian = (angle - 90) * (Math.PI / 180); 
+                    
+                    // 💡 [수정] Core의 중심 좌표(px)를 기준으로 Branch의 좌표(px) 계산
+                    const branchX = CORE_CENTER_X + RADIUS * Math.cos(radian); 
+                    const branchY = CORE_CENTER_Y + RADIUS * Math.sin(radian); 
+                    
+                    // ********** [핵심 로직 끝] **********
+
+                    return (
+                        <BranchNode
+                            key={branchIndex}
+                            branch={branch}
+                            branchIndex={branchIndex}
+                            // ref를 사용하여 branchRefs.current 배열에 요소 저장
+                            ref={el => branchRefs.current[branchIndex] = el}
+                            detailRefs={detailRefs} // detailRefs를 Prop으로 전달
+                            
+                            // 💡 [수정] 위치 스타일을 픽셀(px) 단위로 전달
+                            style={{
+                                position: 'absolute',
+                                left: `${branchX}px`,
+                                top: `${branchY}px`,
+                                transform: 'translate(-50%, -50%)', // 노드의 중심 맞추기
+                            }}
+                        />
+                    );
+                })}
+            </div>
         </div>
     );
 };
-
 
 // --- Main App Component (메인 애플리케이션) ---
 const App = () => {
@@ -438,54 +630,97 @@ const App = () => {
         <div className="p-4 md:p-8 min-h-screen" style={{ fontFamily: 'Noto Sans KR, Inter, sans-serif' }}>
             {/* Custom CSS for Mind Map Structure */}
             <style jsx="true">{`
-                /* 한국어 폰트 설정 (JSX 환경에서는 font-family만 남깁니다) */
+                /* 한국어 폰트 설정 */
                 body {
                     font-family: 'Noto Sans KR', 'Inter', sans-serif;
                     background-color: #f7f9fb;
                 }
-                /* 마인드맵 구조 스타일링 */
-                .mindmap-list {
-                    list-style: none;
-                    padding-left: 0;
-                }
-                .mindmap-list > li {
+                
+                /* 💡 [핵심 추가] 중앙 집중형 마인드맵을 위한 스타일 */
+                .mindmap-container {
+                    /* 중앙 정렬 및 상대 위치 설정 */
                     position: relative;
-                    padding: 10px 0 10px 30px;
-                    margin-bottom: 5px;
-                    border-left: 2px solid #3b82f6;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 400px; /* 최소 높이 설정 */
+                    padding: 40px;
                 }
-                .mindmap-list > li::before {
-                    content: '⬤';
+                
+                .core-topic {
+                    /* 핵심 주제 도형 스타일 */
+                    position: relative;
+                    z-index: 10;
+                    min-width: 150px;
+                    text-align: center;
+                    padding: 20px;
+                    border-radius: 50%; /* 원형으로 변경 */
+                    background-color: #f59e0b; /* 노란색 */
+                    color: white;
+                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+                    font-size: 1.5rem;
+                    font-weight: bold;
+                    line-height: 1.2;
+                }
+                
+                .branch-container {
+                    /* 소주제(가지) 컨테이너 (핵심 주제를 중심으로 배치) */
                     position: absolute;
-                    left: -8px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    color: #3b82f6;
-                    font-size: 10px;
-                    background-color: #f7f9fb;
-                    padding: 0 4px;
+                    width: 100%; /* 부모에 맞춰 크기 설정 */
+                    height: 100%;
+                    top: 0;
+                    left: 0;
+                    display: flex; /* 가지들을 정렬하기 위해 flex 사용 */
+                    flex-direction: column;
+                    justify-content: space-around; /* 가지들을 고르게 분포 */
+                    align-items: center;
+                    pointer-events: none; /* 클릭 이벤트 통과 */
                 }
-                .detail-item {
+                
+                .branch-node {
+                    /* 소주제 도형 스타일 */
                     position: relative;
-                    padding-left: 15px;
+                    z-index: 5;
+                    padding: 10px 15px;
+                    border-radius: 9999px; /* 알약 모양 */
+                    background-color: #3b82f6; /* 파란색 */
+                    color: white;
+                    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+                    font-weight: 600;
+                    cursor: pointer;
+                    pointer-events: all; /* 클릭 이벤트 다시 활성화 */
+                    transition: all 0.3s ease;
+                    transform: translateX(var(--x, 0)) translateY(var(--y, 0)); /* CSS 변수를 사용한 위치 조정 */
+                }
+                
+                .detail-item {
+                    /* 세부 사항 스타일 */
+                    list-style-type: '— ';
+                    padding-left: 10px;
                     color: #4b5563;
                 }
-                .detail-item::before {
-                    content: '—';
+
+                /* 💡 연결선 효과 (Line Simulation) */
+                .connection-line {
                     position: absolute;
+                    width: 100%;
+                    height: 100%;
+                    top: 0;
                     left: 0;
-                    color: #6b7280;
+                    z-index: 1; /* 핵심 주제와 가지 사이에 위치 */
+                    pointer-events: none;
                 }
+
+                .connection-line svg {
+                    overflow: visible;
+                    width: 100%;
+                    height: 100%;
+                }
+                
                 .scrollable-area::-webkit-scrollbar {
                     width: 6px;
                 }
-                .scrollable-area::-webkit-scrollbar-thumb {
-                    background: #cbd5e1;
-                    border-radius: 3px;
-                }
-                .scrollable-area::-webkit-scrollbar-track {
-                    background: #f1f5f9;
-                }
+                /* ... 스크롤바 스타일 유지 ... */
             `}</style>
 
             <h1 className="text-3xl font-bold text-center text-gray-800 mb-6 border-b pb-3">AI 채팅 마인드맵 생성 데모</h1>
