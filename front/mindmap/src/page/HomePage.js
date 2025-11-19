@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios'; 
 import "./HomePage.css"
 
+import Header from "../component/Header";
+
 import { useNavigate } from 'react-router-dom';
 
 // 💡 API 기본 설정
@@ -14,14 +16,14 @@ const USER_API_URL = `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/user/user`;
 // ----------------------------------------------------
 // [Component] Header (내부 컴포넌트)
 // ----------------------------------------------------
-const Header = () => {
-    const navigation = useNavigate();
-    const isAuthenticated = sessionStorage.getItem('access_token');
-    const handleLogout = () => {
-        sessionStorage.removeItem('access_token');
-        navigation('/login');
-    };
-};
+// const Header = () => {
+//     const navigation = useNavigate();
+//     const isAuthenticated = sessionStorage.getItem('access_token');
+//     const handleLogout = () => {
+//         sessionStorage.removeItem('access_token');
+//         navigation('/login');
+//     };
+// };
 
 // ----------------------------------------------------
 // [Component] Friends (내부 컴포넌트 - 접속 중인 친구 카드)
