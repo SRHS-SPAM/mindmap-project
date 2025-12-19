@@ -3,6 +3,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './InfoPage.css';
 
+import Header from "../component/Header";
+
 // NOTE: 외부 CSS 파일은 단일 파일 원칙을 위해 <style> 태그로 대체합니다.
 // TODO: 실제 FastAPI 백엔드 주소로 변경하세요. (로컬 환경 개발을 위해 유지)
 const API_BASE_URL = 'http://localhost:8000';
@@ -716,6 +718,7 @@ const InfoPageScreen = () => {
             }
             `}
         </style>
+        <Header/>
         <div className="profile-container" style={AppStyles.profileContainer}>
              <input
                  type="file"
