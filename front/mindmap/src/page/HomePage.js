@@ -38,7 +38,7 @@ const Friends = ({ friend }) => {
         : "bg-gray-400 border-2 border-white";
     
     return (
-        <div className="friend_card flex flex-col items-center p-3 rounded-lg hover:bg-gray-100 transition duration-150 cursor-pointer">
+        <div className="w-[150px] h-[150px] friend_card flex flex-col items-center p-3 rounded-lg hover:bg-gray-700 transition duration-150 cursor-pointer">
             
             {/* 🖼️ 프로필 이미지 영역 */}
             <div className="relative w-16 h-16 rounded-full mb-2 flex items-center justify-center bg-gray-200 border-2 border-indigo-500">
@@ -70,7 +70,7 @@ const Friends = ({ friend }) => {
             </div>
             
             {/* 이름 표시 */}
-            <p className="text-sm font-semibold text-gray-800 truncate w-full text-center">
+            <p className="text-sm font-semibold text-white truncate w-full text-center">
                 {friend.name || friend.email.split('@')[0]}
             </p>
             {/* 상태 메시지 */}
@@ -104,28 +104,28 @@ const ProjectCard = ({ project, onClick }) => {
 // ----------------------------------------------------
 // [Page] FriendPage (내부 페이지 - /friends)
 // ----------------------------------------------------
-const FriendPage = () => {
-    const navigation = useNavigate();
-    return (
-        <div className="min-h-screen bg-gray-50 pb-10">
-            <Header />
-            <div className="max-w-4xl mx-auto mt-8 p-6 bg-white rounded-xl shadow-lg">
-                <button 
-                    onClick={() => navigation('/main')} 
-                    className="text-indigo-600 hover:text-indigo-800 font-medium mb-4 flex items-center"
-                >
-                    &larr; 홈으로 돌아가기
-                </button>
-                <h1 className="text-3xl font-extrabold text-gray-800 border-b pb-2 mb-6">친구 관리 페이지</h1>
-                <p className="text-gray-600">
-                    전체 친구 목록과 친구 요청 관리 기능이 여기에 들어갑니다.
-                    현재 경로는 `/friends`입니다.
-                </p>
-                {/* 여기에 실제 친구 목록 UI를 구현합니다. */}
-            </div>
-        </div>
-    );
-};
+// const FriendPage = () => {
+//     const navigation = useNavigate();
+//     return (
+//         <div className="min-h-screen bg-gray-50 pb-10">
+//             <Header />
+//             <div className="max-w-4xl mx-auto mt-8 p-6 bg-white rounded-xl shadow-lg">
+//                 <button 
+//                     onClick={() => navigation('/main')} 
+//                     className="text-indigo-600 hover:text-indigo-800 font-medium mb-4 flex items-center"
+//                 >
+//                     &larr; 홈으로 돌아가기
+//                 </button>
+//                 <h1 className="text-3xl font-extrabold text-gray-800 border-b pb-2 mb-6">친구 관리 페이지</h1>
+//                 <p className="text-gray-600">
+//                     전체 친구 목록과 친구 요청 관리 기능이 여기에 들어갑니다.
+//                     현재 경로는 `/friends`입니다.
+//                 </p>
+//                 {/* 여기에 실제 친구 목록 UI를 구현합니다. */}
+//             </div>
+//         </div>
+//     );
+// };
 
 
 // ----------------------------------------------------
@@ -286,10 +286,10 @@ const HomePage = () => {
                 <div className="people_wrap">
                     {/* 🚨 [수정] sub_text_ho 클래스 적용 */}
                     <h2 className="sub_text_ho">
-                        접속 중인 친구 ({allFriends.filter(f => f.is_online).length})
+                        FRIEND ({allFriends.filter(f => f.is_online).length})
                         <button 
                             onClick={() => navigation('/friends')} 
-                            className='text-sm text-gray-500 hover:text-indigo-700 transition' // 이 부분은 Tailwind 클래스 유지
+                            className='text-lg text-white hover:text-indigo-700 transition align-top' // 이 부분은 Tailwind 클래스 유지
                         >
                             전체 친구 목록 보기 &gt;
                         </button>
@@ -324,9 +324,9 @@ const HomePage = () => {
                 {/* --- RECENT ACTIVITY 섹션 (프로젝트 목록 및 생성) --- */}
                 {/* 🚨 [수정] resent_wrap 클래스 적용 */}
                 <div className="resent_wrap"> 
-                    <div className='flex justify-between items-center mb-4 border-b pb-2'> {/* 이 부분은 Tailwind 클래스 유지 */}
+                    <div className='flex justify-between items-center mb-4 border-b pb-1'> {/* 이 부분은 Tailwind 클래스 유지 */}
                          {/* 🚨 [수정] sub_text_ho 클래스 적용 */}
-                        <h1 className='sub_text_ho'>최근 활동 프로젝트</h1> 
+                        <h1 className='sub_text_ho'>RECENT ACTIVITY</h1> 
                         
                         <div className="flex gap-2"> {/* 이 부분은 Tailwind 클래스 유지 */}
                             <input
@@ -349,11 +349,11 @@ const HomePage = () => {
                     <div className="scroll"> 
                         {/* 🚨 [수정] act_wrap 클래스 적용 (프로젝트 목록) */}
                         <div className="act_wrap">
-                            {isLoading && <p className="text-gray-500 p-4">프로젝트를 불러오는 중...</p>}
-                            {error && <p className="text-red-500 p-4">오류: {error}</p>}
+                            {isLoading && <h3 className="w-auto h-auto bg-none text-gray-500">프로젝트를 불러오는 중...</h3>}
+                            {error && <h3 className="w-auto h-auto bg-none text-red-500">오류: {error}</h3>}
                             
                             {!isLoading && !error && projects.length === 0 && (
-                                <p className="text-gray-500 p-4">참여 중인 프로젝트가 없습니다. 새로 만들어보세요!</p>
+                                <h3 className="w-auto h-auto bg-none text-gray-500">참여 중인 프로젝트가 없습니다. 새로 만들어보세요!</h3>
                             )}
 
                             {/* ProjectCard 컴포넌트 내부에서 act_wrap_item 클래스를 사용합니다. */}
@@ -369,7 +369,7 @@ const HomePage = () => {
                 </div>
 
                 {/* Mind Maps Friends Are Active On 섹션 */}
-                <div className="mb-10"> {/* Tailwind 클래스 유지 */}
+                <div className=""> {/* Tailwind 클래스 유지 */}
                     <div className='mb-4 border-b pb-2'> {/* Tailwind 클래스 유지 */}
                          {/* 🚨 [수정] sub_text_ho 클래스 적용 */}
                         <h1 className='sub_text_ho'>친구들이 활동 중인 마인드맵</h1>

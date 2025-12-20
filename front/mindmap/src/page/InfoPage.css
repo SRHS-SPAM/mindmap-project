@@ -2,13 +2,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 body { 
     font-family: 'Inter', sans-serif; 
-    background-color: #f0f4f8; 
+    background-color: #272E33; 
     margin: 0;
     padding: 0;
 }
 
 /* 컨테이너 */
 .profile-container {
+    background-color: #272E33;
     min-height: 100vh;
     display: flex;
     align-items: flex-start; /* 상단에서 시작 */

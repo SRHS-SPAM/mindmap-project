@@ -23,16 +23,23 @@
 }
 
 .sub_text_ho {
-    margin: 15px 0;   
+    margin: 0 15px;
+    margin-top: 15px;
 
     color: aliceblue;
 
     font-weight: 900;
     font-family: 'Inter', sans-serif;
     font-size: 40px;
+
+    display: flex;
+    justify-content: space-between;
 }
 
 .people_wrap {
+    display: flex;
+    flex-direction: column;
+
     border-top: 3px solid #101316;
     border-bottom: 3px solid #101316;
 
@@ -47,6 +54,7 @@
 
 .resent_wrap {
     margin-left: 40px;
+    margin-right: 40px;
     margin-bottom: 20px; 
 }
 
@@ -78,7 +86,6 @@
 .act_wrap {
     /* 기존 스타일 유지하면서, 프로젝트 카드들이 세로로 잘 쌓이도록 조정 */
     display: flex;
-    flex-direction: column; /* 세로로 나열 */
     gap: 10px; /* 프로젝트 카드 사이의 간격 */
     padding: 10px; /* 내부 패딩 */
 }

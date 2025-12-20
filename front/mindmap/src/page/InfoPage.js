@@ -60,12 +60,14 @@ const messageBoxStyles = {
 // 메인 앱 스타일 (Tailwind CSS 스타일을 인라인으로 변환)
 const AppStyles = {
     profileContainer: {
+        width: 'calc(100% - 100px)',
+        marginLeft: '100px',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'flex-start',
         minHeight: '100vh',
         padding: '2rem',
-        backgroundColor: '#F3F4F6',
+        backgroundColor: '#272E33',
         fontFamily: 'Inter, sans-serif',
     },
     card: {

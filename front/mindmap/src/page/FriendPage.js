@@ -4,6 +4,8 @@ import Header from "../component/Header";
 import { Search } from "lucide-react";
 import axios from 'axios'; 
 
+import './FriendPage.css';
+
 // CORS 문제 해결 후에는 BASE_URL은 변함이 없습니다.
 const BASE_URL = 'http://localhost:8000/api/v1/user/user'; 
 
@@ -66,7 +68,7 @@ const FoundFriendCard = ({ user, onAddFriend }) => {
     const initial = user.name ? user.name[0] : '👤';
     
     return (
-        <div className="found_friend_card flex items-center justify-between p-4 bg-yellow-50 rounded-xl shadow-inner mt-4">
+        <div className="found_friend_card flex items-center justify-between p-4 bg-yellow-50 rounded-xl shadow-inner mb-4">
             {/* 🖼️ 프로필 이미지 영역 수정 */}
             <div className="friend_profile_img w-10 h-10 rounded-full overflow-hidden mr-4 flex items-center justify-center bg-gray-300">
                 {imageUrl ? (
@@ -248,9 +250,9 @@ const Friend = () => {
     return(
         <div className="wrap_f min-h-screen bg-gray-50 font-sans">
             <Header />
-            <div className="info max-w-4xl mx-auto p-4 md:p-8">
+            <div className="info mx-auto p-4 md:p-8">
                 <div className='text_wrap_f mb-8'>
-                    <h1 className='main_text_f text-4xl font-extrabold text-gray-800 mb-5'>친구 (Friend)</h1>
+                    <h1 className='main_text_f text-4xl font-extrabold text-gray-800 mb-5'>Friend</h1>
                     
                     {/* 검색창 영역 */}
                     <div className='search_input_wrap flex items-center bg-white rounded-xl shadow-lg p-3 mt-4'>
@@ -269,20 +271,22 @@ const Friend = () => {
                         />  
                     </div>
 
-                    {/* 상태 및 에러 메시지 영역 */}
-                    {statusMessage && <p className={`status_message font-bold mt-3 p-2 rounded-lg ${statusMessage.includes('성공적') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{statusMessage}</p>}
-                    {searchError && <p className="search_error_message text-red-500 mt-3">{searchError}</p>}
-
-                    {/* 검색 결과 표시 영역 */}
-                    <div className="search_result_area">
-                        {foundUser && (
-                            <FoundFriendCard user={foundUser} onAddFriend={handleAddFriend} />
-                        )}
-                    </div>
+                    
                     
                     <h2 className="sub_text_f text-2xl font-bold text-gray-700 mt-10 mb-4">내 친구 ({friendsList.length})</h2>
                 </div>
-                
+
+                {/* 상태 및 에러 메시지 영역 */}
+                {statusMessage && <p className={`status_message font-bold mt-3 p-2 rounded-lg ${statusMessage.includes('성공적') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{statusMessage}</p>}
+                {searchError && <p className="search_error_message text-red-500 mt-3">{searchError}</p>}
+
+                {/* 검색 결과 표시 영역 */}
+                <div className="search_result_area p-3">
+                    {foundUser && (
+                        <FoundFriendCard user={foundUser} onAddFriend={handleAddFriend} />
+                    )}
+                </div>
+
                 {/* 친구 목록 표시 영역 */}
                 <div className="people_wrap">
                     {isLoading ? (
@@ -296,7 +300,7 @@ const Friend = () => {
                     )}
                 </div>
                 
-                <h2 className="sub_text_f text-2xl font-bold text-gray-700 mt-10 mb-4">다른 사용자 (OTHER PEOPLE)</h2>
+                <h2 className="sub_text_f text-2xl font-bold text-gray-700 mt-10 mb-4">OTHER PEOPLE</h2>
                 {/* 다른 사용자 목록을 표시하는 영역. 현재는 목업으로 비워둡니다. */}
                 <div className="opeople_wrap">
                     <p className="text-gray-400 p-4 bg-white rounded-lg shadow-md">이곳에는 추천 친구나 다른 사용자를 표시할 수 있습니다.</p>

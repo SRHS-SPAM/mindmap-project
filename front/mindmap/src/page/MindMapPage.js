@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+
+import Header from "../component/Header";
+
 // API 키 및 URL 설정 (Canvas 환경에서 자동으로 주입됩니다)
 // const apiKey = "";
 // const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
@@ -627,13 +630,14 @@ const App = () => {
 
 
     return (
-        <div className="p-4 md:p-8 min-h-screen" style={{ fontFamily: 'Noto Sans KR, Inter, sans-serif' }}>
+        <div className="wrap_f min-h-screen flex-col p-4 md:p-8 " style={{ fontFamily: 'Noto Sans KR, Inter, sans-serif' }}>
+            <Header />
             {/* Custom CSS for Mind Map Structure */}
             <style jsx="true">{`
                 /* 한국어 폰트 설정 */
                 body {
                     font-family: 'Noto Sans KR', 'Inter', sans-serif;
-                    background-color: #f7f9fb;
+                    background-color: #272E33;
                 }
                 
                 /* 💡 [핵심 추가] 중앙 집중형 마인드맵을 위한 스타일 */
@@ -723,11 +727,11 @@ const App = () => {
                 /* ... 스크롤바 스타일 유지 ... */
             `}</style>
 
-            <h1 className="text-3xl font-bold text-center text-gray-800 mb-6 border-b pb-3">AI 채팅 마인드맵 생성 데모</h1>
+            <h1 className="text-4xl font-bold text-center text-white border-b p-5">AI 채팅 마인드맵 생성 데모</h1>
             
 
             {/* 메인 레이아웃 (채팅과 마인드맵) */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[70vh] min-h-[500px]">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[70vh] min-h-[500px] p-10">
                 
                 {/* 좌측: 채팅 인터페이스 */}
                 <div className="flex flex-col bg-white rounded-2xl shadow-xl p-6 h-full">
