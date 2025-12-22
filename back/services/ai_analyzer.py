@@ -290,7 +290,6 @@ def analyze_chat_and_generate_map(
         # 💡 [수정] response.text를 바로 할당
         json_string = response.text
         
-        # JSON 파싱 전 정리 (혹시 모를 추가 텍스트 제거)
         json_string = json_string.strip()
         if json_string.startswith("```json"):
             json_string = json_string[7:]
@@ -304,6 +303,46 @@ def analyze_chat_and_generate_map(
 
         # 2. Pydantic 모델로 유효성 검사
         validated_data = MindMapDataOutput(**map_json)
+        
+        # 💡💡💡 [핵심 추가] 프로젝트별 고유 ID 생성 시작 💡💡💡
+        import time
+        timestamp = int(time.time() * 1000)  # 밀리초 타임스탬프로 고유성 보장
+        
+        # 기존 ID -> 새 ID 매핑 테이블
+        id_mapping = {}
+        
+        # 1단계: 모든 노드의 ID를 프로젝트별 고유 ID로 변환
+        for node in validated_data.nodes:
+            old_id = node.id
+            new_id = f"p{project_id}_{old_id}_{timestamp}"
+            id_mapping[old_id] = new_id
+            node.id = new_id
+            
+            # 각 노드의 connections도 새 ID로 업데이트
+            for conn in node.connections:
+                old_target = conn.get("target_id")
+                if old_target:
+                    # 아직 매핑이 안 된 경우를 대비해 나중에 처리
+                    conn["_old_target"] = old_target
+        
+        # 2단계: connections의 target_id를 새 ID로 일괄 업데이트
+        for node in validated_data.nodes:
+            for conn in node.connections:
+                if "_old_target" in conn:
+                    old_target = conn.pop("_old_target")
+                    if old_target in id_mapping:
+                        conn["target_id"] = id_mapping[old_target]
+        
+        # 3단계: links의 source/target도 새 ID로 업데이트
+        for link in validated_data.links:
+            if link.get("source") in id_mapping:
+                link["source"] = id_mapping[link["source"]]
+            if link.get("target") in id_mapping:
+                link["target"] = id_mapping[link["target"]]
+        
+        print(f"✅ 노드 ID 변환 완료: {len(id_mapping)}개 노드")
+        print(f"   예시: {list(id_mapping.items())[:2]}")
+        # 💡💡💡 [ID 변환 로직 끝] 💡💡💡
         
         # 3. schemas.py의 MindMapData 구조에 맞게 변환하여 반환
         # 🚨 [핵심 수정] validated_data.nodes 리스트의 각 Pydantic 객체를 .model_dump()를 사용하여
