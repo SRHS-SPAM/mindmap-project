@@ -7,7 +7,7 @@ import Header from "../component/Header";
 
 // NOTE: 외부 CSS 파일은 단일 파일 원칙을 위해 <style> 태그로 대체합니다.
 // TODO: 실제 FastAPI 백엔드 주소로 변경하세요. (로컬 환경 개발을 위해 유지)
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://mindmap-697550966480.asia-northeast3.run.app';
 
 // ------------------------------------
 // 순수 CSS 스타일 정의 (MessageBox 및 기타 기본 스타일)

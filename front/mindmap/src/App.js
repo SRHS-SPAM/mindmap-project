@@ -17,7 +17,7 @@ import NotificationPage from './page/NotificationPage';
 import InfoPage from './page/InfoPage';
 
 // 💡 API 설정
-const BACKEND_BASE_URL = 'http://localhost:8000';
+const BACKEND_BASE_URL = 'https://mindmap-697550966480.asia-northeast3.run.app';
 const API_VERSION_PREFIX = '/api/v1';
 
 // 💡 보호된 라우트 컴포넌트 (로그인 필요)

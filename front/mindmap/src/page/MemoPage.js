@@ -6,7 +6,7 @@ import './MemoPage.css';
 import Header from "../component/Header";
 
 // 백엔드 API의 기본 URL을 새로운 구조 (Host + /api/v1/memo)에 맞게 설정합니다.
-const API_BASE_URL = 'http://localhost:8000/api/v1/memo'; 
+const API_BASE_URL = 'https://mindmap-697550966480.asia-northeast3.run.app/api/v1/memo'; 
 
 
 const MemoPage = () => {

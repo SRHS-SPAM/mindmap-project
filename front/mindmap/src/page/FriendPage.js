@@ -73,7 +73,7 @@ const FoundFriendCard = ({ user, onAddFriend }) => {
             <div className="friend_profile_img w-10 h-10 rounded-full overflow-hidden mr-4 flex items-center justify-center bg-gray-300">
                 {imageUrl ? (
                     <img 
-                        src={imageUrl.startsWith('http') ? imageUrl : `http://localhost:8000/${imageUrl}`} 
+                        src={imageUrl.startsWith('http') ? imageUrl : `https://mindmap-697550966480.asia-northeast3.run.app/${imageUrl}`} 
                         alt={`${user.name} 프로필`} 
                         className="w-full h-full object-cover" 
                         onError={(e) => { 

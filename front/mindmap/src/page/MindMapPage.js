@@ -9,7 +9,7 @@ import Header from "../component/Header";
 
 // 💡 백엔드 FastAPI 서버의 기본 URL을 상수로 정의
 // (FastAPI가 8000번 포트에서 실행된다고 가정)
-const BACKEND_BASE_URL = 'http://localhost:8000';
+const BACKEND_BASE_URL = 'https://mindmap-697550966480.asia-northeast3.run.app';
 
 // 💡 [수정 필요] API 버전과 프로젝트 라우터를 포함하여 정확한 경로를 명시합니다.
 const API_VERSION_PREFIX = '/api/v1'; // main.py에 설정된 prefix

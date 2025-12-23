@@ -5,7 +5,7 @@ import axios from 'axios';
 import './HomePage.css'; // 스타일 파일 임포트
 
 // 🚨 백엔드 경로: http://localhost:8000/api/v1/user/user
-const BASE_URL = 'http://localhost:8000/api/v1/user/user';
+const BASE_URL = 'https://mindmap-697550966480.asia-northeast3.run.app/api/v1/user/user';
 
 // 친구 신청 알림 카드 컴포넌트
 const NotificationCard = ({ notification, onAction }) => {

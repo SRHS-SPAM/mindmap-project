@@ -4,7 +4,7 @@ import "./SignPage.css"
 
 
 // TODO: 실제 FastAPI 백엔드 주소로 변경하세요.
-const API_BASE_URL = 'http://localhost:8000'; 
+const API_BASE_URL = 'https://mindmap-697550966480.asia-northeast3.run.app'; 
 
 // 이 컴포넌트는 단일 파일 환경이므로 useNavigate를 대체하는 더미 함수를 사용합니다.
 const navigate = (path) => console.log(`Navigating to: ${path}`);
