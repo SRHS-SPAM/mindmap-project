@@ -3,35 +3,51 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # 1. DB 접속 URL 가져오기
-# docker-compose.yml에 설정된 환경 변수 DATABASE_URL을 사용합니다.
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not DATABASE_URL:
-    # 환경 변수가 설정되지 않았을 경우를 대비한 안전 장치 (컨테이너 내부에서는 필요 없음)
-    print("FATAL: DATABASE_URL 환경 변수를 찾을 수 없습니다.")
-    exit(1)
-
-# 2. SQLAlchemy Engine 생성
-# pool_pre_ping=True: DB 연결이 유효한지 주기적으로 확인하여 연결 끊김 오류 방지
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-    # 🚨 중요 수정 1: 커넥션 풀 크기 증가 (기본 5개보다 늘려 동시 요청 처리 능력 향상)
-    pool_size=20,
-    # 🚨 중요 수정 2: 풀이 가득 찼을 때 초과로 생성할 수 있는 연결 개수 설정
-    max_overflow=30 
+# Cloud Run 환경에서는 DATABASE_URL이 없을 수 있으므로 기본값 제공
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    # 기본값: SQLite (개발/테스트용)
+    "sqlite:///./mindmap.db"
 )
 
+print(f"🔌 Connecting to database: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else DATABASE_URL}")
+
+# 2. SQLAlchemy Engine 생성
+try:
+    # SQLite인 경우 추가 설정 필요
+    connect_args = {}
+    if DATABASE_URL.startswith("sqlite"):
+        connect_args = {"check_same_thread": False}
+        print("⚠️  Using SQLite - this is for development only!")
+    
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        connect_args=connect_args,
+        # PostgreSQL/MySQL인 경우에만 풀 설정 적용
+        **({
+            "pool_size": 20,
+            "max_overflow": 30
+        } if not DATABASE_URL.startswith("sqlite") else {})
+    )
+    
+    # 연결 테스트
+    with engine.connect() as conn:
+        print("✅ Database connection successful!")
+        
+except Exception as e:
+    print(f"❌ Database connection failed: {e}")
+    print("⚠️  Application will start but database features may not work.")
+    # Cloud Run에서는 에러가 있어도 일단 앱을 시작시키기
+    # 실제 운영에서는 DB 없이는 못 돌아가니까 나중에 Cloud SQL 연결하면 됨
+
 # 3. 데이터베이스 세션 클래스 생성
-# 이 클래스의 인스턴스가 실제 DB 연결 및 트랜잭션을 처리합니다.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # 4. 모든 ORM 모델의 기본 클래스 정의
-# 모델을 정의할 때 이 Base 클래스를 상속받아 사용합니다.
 Base = declarative_base()
 
-# 5. 의존성 주입(Dependency Injection)을 위한 DB 세션 함수
-# FastAPI 라우터에서 이 함수를 사용하여 DB 세션을 주입받습니다.
+# 5. 의존성 주입을 위한 DB 세션 함수
 def get_db():
     """요청마다 새로운 DB 세션을 생성하고, 응답 후 세션을 닫아줍니다."""
     db = SessionLocal()
