@@ -107,5 +107,8 @@ def read_root():
     return {"message": "MindMap Collaboration API is running."}
 
 if __name__ == "__main__":
-    # 개발 환경에서 uvicorn 실행
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Cloud Run은 'PORT' 환경변수를 주입합니다. 없으면 8000을 씁니다.
+    port = int(os.environ.get("PORT", 8000))
+    print(f"🚀 Server starting on port {port}") # 로그 확인용
+    uvicorn.run("back.main:app", host="0.0.0.0", port=port, reload=True) 
+    # 주의: reload=True는 개발용입니다. 프로덕션에선 끄는게 좋지만 동작엔 영향 없음.
