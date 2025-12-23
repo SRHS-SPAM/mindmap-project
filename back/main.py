@@ -48,6 +48,8 @@ async def startup_event():
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://mindmap-project-sigma.vercel.app",
+    "https://mindmap-697550966480.asia-northeast3.run.app",
     "https://*.vercel.app",  # Vercel 배포 주소
     # 실제 배포 후 정확한 도메인으로 변경하세요
 ]
