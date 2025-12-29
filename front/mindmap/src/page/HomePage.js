@@ -7,8 +7,8 @@ import Header from "../component/Header";
 import { useNavigate } from 'react-router-dom';
 
 // 💡 API 기본 설정
-const BACKEND_BASE_URL = 'https://mindmap-697550966480.asia-northeast3.run.app';
-const API_HOST = 'https://mindmap-697550966480.asia-northeast3.run.app';
+const BACKEND_BASE_URL = 'https://mindmap-500829034336.asia-northeast3.run.app';
+const API_HOST = 'https://mindmap-500829034336.asia-northeast3.run.app';
 const API_VERSION_PREFIX = '/api/v1';
 const USER_API_URL = `${BACKEND_BASE_URL}${API_VERSION_PREFIX}/user/user`;
 

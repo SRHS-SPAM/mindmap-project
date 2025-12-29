@@ -4,7 +4,7 @@ import "./SignPage.css"
 
 
 // TODO: 실제 FastAPI 백엔드 주소로 변경하세요.
-const API_BASE_URL = 'https://mindmap-697550966480.asia-northeast3.run.app'; 
+const API_BASE_URL = 'https://mindmap-500829034336.asia-northeast3.run.app'; 
 
 // 메시지 박스 컴포넌트 (alert() 대신 사용)
 const MessageBox = ({ message, type, onClose }) => (

@@ -7,7 +7,7 @@ import axios from 'axios';
 import './FriendPage.css';
 
 // CORS 문제 해결 후에는 BASE_URL은 변함이 없습니다.
-const BASE_URL = 'https://mindmap-697550966480.asia-northeast3.run.app/api/v1/user/user'; 
+const BASE_URL = 'https://mindmap-500829034336.asia-northeast3.run.app/api/v1/user/user'; 
 
 
 // 1. 친구 목록에 표시될 개별 항목 컴포넌트
@@ -34,7 +34,7 @@ const FriendListItem = ({ friend }) => {
                         src={
                             imageUrl.startsWith('http') 
                                 ? imageUrl 
-                                : `https://mindmap-697550966480.asia-northeast3.run.app${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`
+                                : `https://mindmap-500829034336.asia-northeast3.run.app${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`
                         }
                         alt={`${friend.name} 프로필`} 
                         className="w-full h-full object-cover" 
@@ -73,7 +73,7 @@ const FoundFriendCard = ({ user, onAddFriend }) => {
             <div className="friend_profile_img w-10 h-10 rounded-full overflow-hidden mr-4 flex items-center justify-center bg-gray-300">
                 {imageUrl ? (
                     <img 
-                        src={imageUrl.startsWith('http') ? imageUrl : `https://mindmap-697550966480.asia-northeast3.run.app/${imageUrl}`} 
+                        src={imageUrl.startsWith('http') ? imageUrl : `https://mindmap-500829034336.asia-northeast3.run.app/${imageUrl}`} 
                         alt={`${user.name} 프로필`} 
                         className="w-full h-full object-cover" 
                         onError={(e) => { 
