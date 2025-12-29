@@ -64,6 +64,7 @@ origins = [
     "http://127.0.0.1:3000",
     'https://mindmap-500829034336.asia-northeast3.run.app',
     "https://mindmap-project-sigma.vercel.app",
+    'https://mindmap-project-d1q9lfzje-andire120s-projects.vercel.app',
     "https://mindmap-697550966480.asia-northeast3.run.app",
     "https://*.vercel.app",  # Vercel 배포 주소
 ]
@@ -109,3 +110,53 @@ if __name__ == "__main__":
     
     # ✅ 수정: reload=False로 변경 (프로덕션 환경)
     uvicorn.run("back.main:app", host="0.0.0.0", port=port, reload=False)
+
+@app.get("/debug-env", tags=["Debug"])
+def debug_env():
+    """환경변수 확인"""
+    import os
+    
+    creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    
+    return {
+        "GCP_PROJECT_ID": os.getenv("GCP_PROJECT_ID"),
+        "GCP_REGION": os.getenv("GCP_REGION"),
+        "GOOGLE_APPLICATION_CREDENTIALS": creds_path,
+        "credentials_exists": os.path.exists(creds_path) if creds_path else False,
+        "GCP_CREDENTIALS_JSON_set": bool(os.getenv("GCP_CREDENTIALS_JSON")),
+        "GCP_CREDENTIALS_JSON_length": len(os.getenv("GCP_CREDENTIALS_JSON", ""))
+    }
+
+@app.post("/debug-generate", tags=["Debug"])
+async def debug_generate():
+    """마인드맵 생성 디버그"""
+    import os
+    import traceback
+    
+    try:
+        project_id = os.getenv("GCP_PROJECT_ID")
+        region = os.getenv("GCP_REGION")
+        
+        if not project_id:
+            return {"error": "GCP_PROJECT_ID not set"}
+        
+        if not region:
+            return {"error": "GCP_REGION not set"}
+        
+        # Vertex AI 초기화 시도
+        import vertexai
+        vertexai.init(project=project_id, location=region)
+        
+        return {
+            "status": "success",
+            "project_id": project_id,
+            "region": region,
+            "vertex_initialized": True
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }
