@@ -8,9 +8,13 @@ from dotenv import load_dotenv
 
 from .database import engine, Base
 from .routers import auth, project, user, memo, ai 
-from .utils import UPLOAD_FOLDER 
+from .utils import UPLOAD_FOLDER
+from .config import setup_gcp_credentials  # ✅ 추가
 
 load_dotenv()
+
+# ✅ 앱 시작 전에 GCP 인증 설정
+setup_gcp_credentials()
 
 app = FastAPI(
     title="MindMap Collaboration API",
@@ -20,6 +24,9 @@ app = FastAPI(
 
 # DB 테이블 생성
 Base.metadata.create_all(bind=engine)
+
+# ✅ uploaded_images 디렉토리가 없으면 생성
+os.makedirs("uploaded_images", exist_ok=True)
 
 # ✅ 수정: 중복 제거 - 한 번만 마운트
 app.mount(
@@ -39,6 +46,13 @@ async def startup_event():
             print("⚠️  경고: GCP_PROJECT_ID 환경 변수가 설정되지 않았습니다.")
             return
         
+        # ✅ GOOGLE_APPLICATION_CREDENTIALS가 설정되었는지 확인
+        creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if creds_path and os.path.exists(creds_path):
+            print(f"✅ Using GCP credentials from: {creds_path}")
+        else:
+            print("⚠️  GOOGLE_APPLICATION_CREDENTIALS not found")
+        
         vertexai.init(project=project_id, location=location)
         print(f"✅ Vertex AI 초기화 성공! (Project: {project_id}, Location: {location})")
     except Exception as e:
@@ -48,10 +62,10 @@ async def startup_event():
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    'https://mindmap-500829034336.asia-northeast3.run.app',
     "https://mindmap-project-sigma.vercel.app",
     "https://mindmap-697550966480.asia-northeast3.run.app",
     "https://*.vercel.app",  # Vercel 배포 주소
-    # 실제 배포 후 정확한 도메인으로 변경하세요
 ]
 
 app.add_middleware(
@@ -72,15 +86,26 @@ app.include_router(ai.router, prefix="/api/v1", tags=["5. AI 마인드맵 생성
 
 @app.get("/", tags=["Root"])
 def read_root():
-    return {"message": "MindMap Collaboration API is running."}
+    return {
+        "message": "MindMap Collaboration API is running.",
+        "version": "1.0.0",
+        "gcp_credentials": "✅" if os.getenv("GOOGLE_APPLICATION_CREDENTIALS") else "❌"
+    }
 
 # ✅ 수정: 헬스체크 엔드포인트 추가 (Cloud Run용)
 @app.get("/health", tags=["Health"])
 def health_check():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "database": "connected" if engine else "disconnected",
+        "gcp_auth": "configured" if os.getenv("GOOGLE_APPLICATION_CREDENTIALS") else "missing"
+    }
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     print(f"🚀 Server starting on port {port}")
+    print(f"📊 Database: {os.getenv('DB_HOST', 'SQLite')}")
+    print(f"🔐 GCP Auth: {'✅' if os.getenv('GOOGLE_APPLICATION_CREDENTIALS') else '❌'}")
+    
     # ✅ 수정: reload=False로 변경 (프로덕션 환경)
     uvicorn.run("back.main:app", host="0.0.0.0", port=port, reload=False)

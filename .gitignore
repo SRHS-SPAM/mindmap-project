@@ -1,3 +1,5 @@
 env
 *.env
 gcp-key.json
+gcp-key-new.json
+env.yaml
